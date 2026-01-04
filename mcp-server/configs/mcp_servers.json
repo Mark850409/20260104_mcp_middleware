@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+        "weather": {
+            "command": "python",
+            "args": [
+                "weather_mcp_tool.py"
+            ],
+            "env": {
+                "WEATHER_API_KEY": "${WEATHER_API_KEY}"
+            },
+            "enabled": true,
+            "description": "天氣查詢服務,提供當前天氣和天氣預報功能"
+        }
+    }
+}

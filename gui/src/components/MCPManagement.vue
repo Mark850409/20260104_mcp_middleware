@@ -1,0 +1,1262 @@
+<template>
+  <div class="mcp-management">
+    <!-- 標題區 -->
+    <header class="page-header">
+      <h2>🛠️ MCP 工具管理</h2>
+      <p class="subtitle">管理與操作 Model Context Protocol 工具</p>
+    </header>
+
+    <!-- Tab 切換 -->
+    <div class="tabs-container">
+      <div class="tabs">
+        <button 
+          v-for="tab in tabs" 
+          :key="tab.id"
+          :class="['tab', { active: activeTab === tab.id }]"
+          @click="activeTab = tab.id"
+        >
+          {{ tab.icon }} {{ tab.label }}
+        </button>
+      </div>
+    </div>
+
+    <!-- 主要內容區 -->
+    <div class="container">
+      <!-- Tab 1: MCP Servers 管理 -->
+      <div v-if="activeTab === 'servers'" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>📡 MCP Servers</h3>
+            <button @click="showAddServerDialog = true" class="btn btn-primary">
+              ➕ 新增 Server
+            </button>
+          </div>
+
+          <div v-if="loadingServers" class="loading">載入中...</div>
+          <div v-else-if="servers.length === 0" class="empty-state">
+            尚未配置任何 MCP Server
+          </div>
+          <div v-else class="servers-grid">
+            <div v-for="server in servers" :key="server.name" class="server-card">
+              <div class="server-header">
+                <div>
+                  <h4>{{ server.name }}</h4>
+                  <p class="server-description">{{ server.description || '無描述' }}</p>
+                </div>
+                <label class="switch">
+                  <input 
+                    type="checkbox" 
+                    :checked="server.enabled" 
+                    @change="toggleServer(server.name, $event.target.checked)"
+                  />
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="server-info">
+                <div class="info-row">
+                  <span class="label">Command:</span>
+                  <code>{{ server.command }}</code>
+                </div>
+                <div class="info-row">
+                  <span class="label">Args:</span>
+                  <code>{{ server.args.join(' ') }}</code>
+                </div>
+                <div v-if="server.env && Object.keys(server.env).length > 0" class="info-row">
+                  <span class="label">Env:</span>
+                  <code>{{ Object.keys(server.env).length }} 個變數</code>
+                </div>
+              </div>
+
+              <div class="server-actions">
+                <button @click="editServer(server)" class="btn btn-sm btn-secondary">
+                  ✏️ 編輯
+                </button>
+                <button @click="testServer(server.name)" class="btn btn-sm btn-info">
+                  🔍 測試
+                </button>
+                <button @click="deleteServer(server.name)" class="btn btn-sm btn-danger">
+                  🗑️ 刪除
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Tools 管理 -->
+      <div v-if="activeTab === 'tools'" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>🛠️ MCP Tools</h3>
+            <select v-model="selectedServerForTools" class="form-select">
+              <option value="">-- 選擇 Server --</option>
+              <option v-for="server in enabledServers" :key="server.name" :value="server.name">
+                {{ server.name }}
+              </option>
+            </select>
+          </div>
+
+          <div v-if="loadingTools" class="loading">載入中...</div>
+          <div v-else-if="!selectedServerForTools" class="empty-state">
+            請先選擇一個 Server
+          </div>
+          <div v-else-if="tools.length === 0" class="empty-state">
+            此 Server 沒有可用的工具
+          </div>
+          <div v-else class="tools-list">
+            <div v-for="tool in tools" :key="tool.name" class="tool-item">
+              <div class="tool-header">
+                <h4>{{ tool.name }}</h4>
+                <button @click="quickTestTool(tool)" class="btn btn-sm btn-success">
+                  ⚡ 快速測試
+                </button>
+              </div>
+              <p class="tool-description">{{ tool.description }}</p>
+              <details class="tool-schema">
+                <summary>參數 Schema</summary>
+                <pre>{{ JSON.stringify(tool.inputSchema, null, 2) }}</pre>
+              </details>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Playground 操作區 -->
+      <div v-if="activeTab === 'playground'" class="tab-content">
+        <div class="playground-layout">
+          <div class="playground-main card">
+            <h3>⚡ Tool Playground</h3>
+
+            <!-- Server 選擇 -->
+            <div class="form-group">
+              <label>選擇 Server:</label>
+              <select v-model="playgroundServer" class="form-select" @change="onServerChange">
+                <option value="">-- 請選擇 Server --</option>
+                <option v-for="server in enabledServers" :key="server.name" :value="server.name">
+                  {{ server.name }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Tool 選擇 -->
+            <div class="form-group">
+              <label>選擇 Tool:</label>
+              <select v-model="playgroundTool" class="form-select" @change="onToolChange">
+                <option value="">-- 請選擇工具 --</option>
+                <option v-for="tool in playgroundTools" :key="tool.name" :value="tool.name">
+                  {{ tool.name }}
+                </option>
+              </select>
+            </div>
+
+            <!-- 動態參數輸入 -->
+            <div v-if="playgroundTool && selectedToolSchema" class="form-group">
+              <label>參數輸入:</label>
+              <div v-for="(prop, key) in selectedToolSchema.properties" :key="key" class="param-input">
+                <label class="param-label">
+                  {{ key }}
+                  <span v-if="selectedToolSchema.required?.includes(key)" class="required">*</span>
+                </label>
+                <input
+                  v-model="playgroundArguments[key]"
+                  :type="prop.type === 'number' || prop.type === 'integer' ? 'number' : 'text'"
+                  :placeholder="prop.description || key"
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <!-- 執行按鈕 -->
+            <div class="form-group">
+              <button
+                @click="executePlayground"
+                :disabled="!playgroundTool || executing"
+                class="btn btn-execute"
+              >
+                {{ executing ? '執行中...' : '🚀 執行 Tool' }}
+              </button>
+            </div>
+
+            <!-- 結果顯示 -->
+            <div v-if="playgroundResult" class="result-section">
+              <h4>執行結果:</h4>
+              <div :class="['result-box', playgroundResult.success ? 'success' : 'error']">
+                <pre>{{ JSON.stringify(playgroundResult, null, 2) }}</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- 執行歷史 -->
+          <div class="playground-sidebar card">
+            <h4>📜 執行歷史</h4>
+            <div v-if="executionHistory.length === 0" class="empty-state-small">
+              尚無執行記錄
+            </div>
+            <div v-else class="history-list">
+              <div 
+                v-for="(item, index) in executionHistory" 
+                :key="index"
+                class="history-item"
+                @click="loadHistoryItem(item)"
+              >
+                <div class="history-header">
+                  <span class="history-tool">{{ item.tool }}</span>
+                  <span :class="['history-status', item.success ? 'success' : 'error']">
+                    {{ item.success ? '✓' : '✗' }}
+                  </span>
+                </div>
+                <div class="history-time">{{ formatTime(item.time) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 新增/編輯 Server 對話框 -->
+    <div v-if="showAddServerDialog || editingServer" class="modal-overlay" @click.self="closeServerDialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>{{ editingServer ? '編輯 Server' : '新增 Server' }}</h3>
+          <button @click="closeServerDialog" class="btn-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Server 名稱 *</label>
+            <input 
+              v-model="serverForm.name" 
+              :disabled="!!editingServer"
+              class="form-input" 
+              placeholder="例如: weather, github"
+            />
+          </div>
+          <div class="form-group">
+            <label>描述</label>
+            <input 
+              v-model="serverForm.description" 
+              class="form-input" 
+              placeholder="Server 的功能描述"
+            />
+          </div>
+          <div class="form-group">
+            <label>Command *</label>
+            <select v-model="serverForm.command" class="form-select">
+              <option value="python">python</option>
+              <option value="npx">npx</option>
+              <option value="node">node</option>
+              <option value="uvx">uvx</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Args *</label>
+            <div class="args-input">
+              <div v-for="(arg, index) in serverForm.args" :key="index" class="arg-row">
+                <input v-model="serverForm.args[index]" class="form-input" placeholder="參數" />
+                <button @click="removeArg(index)" class="btn btn-sm btn-danger">✕</button>
+              </div>
+              <button @click="addArg" class="btn btn-sm btn-secondary">➕ 新增參數</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Environment Variables</label>
+            <div class="env-input">
+              <div v-for="(value, key) in serverForm.env" :key="key" class="env-row">
+                <input :value="key" @input="updateEnvKey($event, key)" class="form-input" placeholder="KEY" />
+                <input v-model="serverForm.env[key]" class="form-input" placeholder="VALUE" />
+                <button @click="removeEnv(key)" class="btn btn-sm btn-danger">✕</button>
+              </div>
+              <button @click="addEnv" class="btn btn-sm btn-secondary">➕ 新增環境變數</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="closeServerDialog" class="btn btn-secondary">取消</button>
+          <button @click="saveServer" class="btn btn-primary">儲存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import { ref, computed, onMounted, watch } from 'vue'
+import axios from 'axios'
+
+export default {
+  name: 'MCPManagement',
+  setup() {
+    // API Base URL
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
+    // Tab 管理
+    const tabs = [
+      { id: 'servers', label: 'Servers', icon: '📡' },
+      { id: 'tools', label: 'Tools', icon: '🛠️' },
+      { id: 'playground', label: 'Playground', icon: '⚡' }
+    ]
+    const activeTab = ref('servers')
+
+    // Servers 管理
+    const servers = ref([])
+    const loadingServers = ref(false)
+    const showAddServerDialog = ref(false)
+    const editingServer = ref(null)
+    const serverForm = ref({
+      name: '',
+      description: '',
+      command: 'python',
+      args: [''],
+      env: {},
+      enabled: true
+    })
+
+    // Tools 管理
+    const selectedServerForTools = ref('')
+    const tools = ref([])
+    const loadingTools = ref(false)
+
+    // Playground
+    const playgroundServer = ref('')
+    const playgroundTool = ref('')
+    const playgroundTools = ref([])
+    const playgroundArguments = ref({})
+    const playgroundResult = ref(null)
+    const executing = ref(false)
+    const executionHistory = ref([])
+
+    // 計算屬性
+    const enabledServers = computed(() => {
+      return servers.value.filter(s => s.enabled)
+    })
+
+    const selectedToolSchema = computed(() => {
+      if (!playgroundTool.value) return null
+      const tool = playgroundTools.value.find(t => t.name === playgroundTool.value)
+      return tool?.inputSchema || null
+    })
+
+    // Servers 管理方法
+    const loadServers = async () => {
+      loadingServers.value = true
+      try {
+        const response = await axios.get(`${API_URL}/api/mcp/servers`)
+        if (response.data.success) {
+          servers.value = response.data.data
+        }
+      } catch (error) {
+        console.error('載入 Servers 失敗:', error)
+        alert('載入 Servers 失敗: ' + error.message)
+      } finally {
+        loadingServers.value = false
+      }
+    }
+
+    const toggleServer = async (serverName, enabled) => {
+      try {
+        const response = await axios.post(`${API_URL}/api/mcp/servers/${serverName}/toggle`, { enabled })
+        if (response.data.success) {
+          await loadServers()
+        }
+      } catch (error) {
+        console.error('切換 Server 狀態失敗:', error)
+        alert('切換 Server 狀態失敗: ' + error.message)
+      }
+    }
+
+    const editServer = (server) => {
+      editingServer.value = server
+      serverForm.value = {
+        name: server.name,
+        description: server.description || '',
+        command: server.command,
+        args: [...server.args],
+        env: { ...server.env },
+        enabled: server.enabled
+      }
+    }
+
+    const testServer = async (serverName) => {
+      try {
+        const response = await axios.post(`${API_URL}/api/mcp/servers/${serverName}/test`)
+        if (response.data.success) {
+          alert(`Server ${serverName} 測試成功!`)
+        }
+      } catch (error) {
+        alert(`Server ${serverName} 測試失敗: ` + error.message)
+      }
+    }
+
+    const deleteServer = async (serverName) => {
+      if (!confirm(`確定要刪除 Server "${serverName}" 嗎?`)) return
+      
+      try {
+        const response = await axios.delete(`${API_URL}/api/mcp/servers/${serverName}`)
+        if (response.data.success) {
+          await loadServers()
+        }
+      } catch (error) {
+        console.error('刪除 Server 失敗:', error)
+        alert('刪除 Server 失敗: ' + error.message)
+      }
+    }
+
+    const closeServerDialog = () => {
+      showAddServerDialog.value = false
+      editingServer.value = null
+      serverForm.value = {
+        name: '',
+        description: '',
+        command: 'python',
+        args: [''],
+        env: {},
+        enabled: true
+      }
+    }
+
+    const saveServer = async () => {
+      try {
+        if (editingServer.value) {
+          // 更新
+          const response = await axios.put(
+            `${API_URL}/api/mcp/servers/${serverForm.value.name}`,
+            {
+              command: serverForm.value.command,
+              args: serverForm.value.args.filter(a => a.trim()),
+              env: serverForm.value.env,
+              description: serverForm.value.description,
+              enabled: serverForm.value.enabled
+            }
+          )
+          if (response.data.success) {
+            await loadServers()
+            closeServerDialog()
+          }
+        } else {
+          // 新增
+          const response = await axios.post(`${API_URL}/api/mcp/servers`, {
+            name: serverForm.value.name,
+            config: {
+              command: serverForm.value.command,
+              args: serverForm.value.args.filter(a => a.trim()),
+              env: serverForm.value.env,
+              description: serverForm.value.description,
+              enabled: serverForm.value.enabled
+            }
+          })
+          if (response.data.success) {
+            await loadServers()
+            closeServerDialog()
+          }
+        }
+      } catch (error) {
+        console.error('儲存 Server 失敗:', error)
+        alert('儲存 Server 失敗: ' + error.message)
+      }
+    }
+
+    const addArg = () => {
+      serverForm.value.args.push('')
+    }
+
+    const removeArg = (index) => {
+      serverForm.value.args.splice(index, 1)
+    }
+
+    const addEnv = () => {
+      const key = prompt('請輸入環境變數名稱:')
+      if (key) {
+        serverForm.value.env[key] = ''
+      }
+    }
+
+    const removeEnv = (key) => {
+      delete serverForm.value.env[key]
+    }
+
+    const updateEnvKey = (event, oldKey) => {
+      const newKey = event.target.value
+      if (newKey !== oldKey) {
+        const value = serverForm.value.env[oldKey]
+        delete serverForm.value.env[oldKey]
+        serverForm.value.env[newKey] = value
+      }
+    }
+
+    // Tools 管理方法
+    const loadTools = async (serverName) => {
+      loadingTools.value = true
+      try {
+        const response = await axios.get(`${API_URL}/api/mcp/servers/${serverName}/tools`)
+        if (response.data.tools) {
+          tools.value = response.data.tools
+        }
+      } catch (error) {
+        console.error('載入 Tools 失敗:', error)
+        tools.value = []
+      } finally {
+        loadingTools.value = false
+      }
+    }
+
+    const quickTestTool = (tool) => {
+      activeTab.value = 'playground'
+      playgroundServer.value = selectedServerForTools.value
+      playgroundTool.value = tool.name
+      playgroundTools.value = tools.value
+    }
+
+    // Playground 方法
+    const onServerChange = async () => {
+      playgroundTool.value = ''
+      playgroundArguments.value = {}
+      playgroundResult.value = null
+      
+      if (playgroundServer.value) {
+        await loadPlaygroundTools()
+      }
+    }
+
+    const loadPlaygroundTools = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/api/mcp/servers/${playgroundServer.value}/tools`)
+        if (response.data.tools) {
+          playgroundTools.value = response.data.tools
+        }
+      } catch (error) {
+        console.error('載入 Tools 失敗:', error)
+        playgroundTools.value = []
+      }
+    }
+
+    const onToolChange = () => {
+      playgroundArguments.value = {}
+      playgroundResult.value = null
+    }
+
+    const executePlayground = async () => {
+      executing.value = true
+      playgroundResult.value = null
+
+      try {
+        const response = await axios.post(
+          `${API_URL}/api/mcp/servers/${playgroundServer.value}/tools/${playgroundTool.value}/invoke`,
+          { arguments: playgroundArguments.value }
+        )
+        playgroundResult.value = response.data
+
+        // 添加到歷史
+        executionHistory.value.unshift({
+          server: playgroundServer.value,
+          tool: playgroundTool.value,
+          arguments: { ...playgroundArguments.value },
+          result: response.data,
+          success: response.data.success,
+          time: new Date()
+        })
+
+        // 限制歷史記錄數量
+        if (executionHistory.value.length > 10) {
+          executionHistory.value.pop()
+        }
+      } catch (error) {
+        console.error('執行工具失敗:', error)
+        playgroundResult.value = {
+          success: false,
+          error: error.message
+        }
+      } finally {
+        executing.value = false
+      }
+    }
+
+    const loadHistoryItem = (item) => {
+      playgroundServer.value = item.server
+      playgroundTool.value = item.tool
+      playgroundArguments.value = { ...item.arguments }
+      playgroundResult.value = item.result
+    }
+
+    const formatTime = (date) => {
+      return new Date(date).toLocaleTimeString('zh-TW')
+    }
+
+    // Watch
+    watch(selectedServerForTools, (newServer) => {
+      if (newServer) {
+        loadTools(newServer)
+      } else {
+        tools.value = []
+      }
+    })
+
+    // 初始化
+    onMounted(async () => {
+      await loadServers()
+    })
+
+    return {
+      tabs,
+      activeTab,
+      servers,
+      loadingServers,
+      showAddServerDialog,
+      editingServer,
+      serverForm,
+      enabledServers,
+      toggleServer,
+      editServer,
+      testServer,
+      deleteServer,
+      closeServerDialog,
+      saveServer,
+      addArg,
+      removeArg,
+      addEnv,
+      removeEnv,
+      updateEnvKey,
+      selectedServerForTools,
+      tools,
+      loadingTools,
+      quickTestTool,
+      playgroundServer,
+      playgroundTool,
+      playgroundTools,
+      playgroundArguments,
+      playgroundResult,
+      executing,
+      executionHistory,
+      selectedToolSchema,
+      onServerChange,
+      onToolChange,
+      executePlayground,
+      loadHistoryItem,
+      formatTime
+    }
+  }
+}
+</script>
+
+<style scoped>
+.mcp-management {
+  height: 100%;
+  overflow-y: auto;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.page-header {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.page-header h2 {
+  font-size: 2rem;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  color: #666;
+  font-size: 1rem;
+}
+
+.tabs-container {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0 2rem;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.tab {
+  padding: 1rem 2rem;
+  border: none;
+  background: transparent;
+  color: #666;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s;
+}
+
+.tab:hover {
+  color: #667eea;
+}
+
+.tab.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 1rem 2rem 1rem;
+}
+
+.tab-content {
+  animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.card-header h3 {
+  color: #667eea;
+  font-size: 1.3rem;
+  margin: 0;
+}
+
+.loading, .empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #999;
+  font-size: 1.1rem;
+}
+
+.empty-state-small {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+/* Servers Grid */
+.servers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+.server-card {
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: all 0.3s;
+}
+
+.server-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.server-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.server-header h4 {
+  color: #333;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
+}
+
+.server-description {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.server-info {
+  margin: 1rem 0;
+}
+
+.info-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.info-row .label {
+  font-weight: 600;
+  color: #555;
+  min-width: 70px;
+}
+
+.info-row code {
+  background: #f3f4f6;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  flex: 1;
+}
+
+.server-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+/* Tools List */
+.tools-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.tool-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  transition: border-color 0.2s;
+}
+
+.tool-item:hover {
+  border-color: #667eea;
+}
+
+.tool-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.tool-header h4 {
+  color: #333;
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.tool-description {
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.tool-schema {
+  margin-top: 0.5rem;
+}
+
+.tool-schema summary {
+  cursor: pointer;
+  color: #667eea;
+  font-weight: 600;
+}
+
+.tool-schema pre {
+  background: #f9fafb;
+  padding: 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+/* Playground */
+.playground-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 1.5rem;
+}
+
+.playground-main {
+  min-height: 600px;
+}
+
+.playground-sidebar {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.playground-sidebar h4 {
+  color: #667eea;
+  margin-bottom: 1rem;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.history-item {
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.history-item:hover {
+  border-color: #667eea;
+  background: #f9fafb;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.history-tool {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.history-status {
+  font-size: 1.2rem;
+}
+
+.history-status.success {
+  color: #10b981;
+}
+
+.history-status.error {
+  color: #ef4444;
+}
+
+.history-time {
+  font-size: 0.75rem;
+  color: #999;
+}
+
+/* Forms */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #555;
+}
+
+.form-select,
+.form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.form-select:focus,
+.form-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.param-input {
+  margin-bottom: 1rem;
+}
+
+.param-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.result-section {
+  margin-top: 1.5rem;
+}
+
+.result-box {
+  border-radius: 8px;
+  padding: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.result-box.success {
+  background: #d1fae5;
+  border: 2px solid #10b981;
+}
+
+.result-box.error {
+  background: #fee2e2;
+  border: 2px solid #ef4444;
+}
+
+.result-box pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+/* Buttons */
+.btn {
+  padding: 0.6rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-sm {
+  padding: 0.4rem 1rem;
+  font-size: 0.9rem;
+}
+
+.btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #5568d3;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: #6b7280;
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #4b5563;
+}
+
+.btn-success {
+  background: #10b981;
+  color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #059669;
+}
+
+.btn-info {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-info:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.btn-execute {
+  background: #10b981;
+  color: white;
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.1rem;
+}
+
+.btn-execute:hover:not(:disabled) {
+  background: #059669;
+  transform: scale(1.02);
+}
+
+/* Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #667eea;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.modal-header h3 {
+  color: #667eea;
+  margin: 0;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #999;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+}
+
+.btn-close:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  border-top: 2px solid #f0f0f0;
+}
+
+.args-input, .env-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.arg-row, .env-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.arg-row .form-input,
+.env-row .form-input {
+  flex: 1;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .playground-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .playground-sidebar {
+    max-height: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .container {
+    padding: 0 0.5rem 2rem 0.5rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .servers-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tabs {
+    overflow-x: auto;
+  }
+
+  .tab {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+</style>
