@@ -354,13 +354,22 @@ export default {
 
     const toggleServer = async (serverName, enabled) => {
       try {
-        const response = await axios.post(`${API_URL}/api/mcp/servers/${serverName}/toggle`, { enabled })
+        const response = await axios.post(
+          `${API_URL}/api/mcp/servers/${serverName}/toggle`, 
+          { enabled },
+          { headers: { 'Content-Type': 'application/json' } }
+        )
         if (response.data.success) {
           await loadServers()
+        } else {
+          alert(`切換 Server 狀態失敗:\n${response.data.error || '未知錯誤'}`)
+          await loadServers() // 恢復原狀態
         }
       } catch (error) {
         console.error('切換 Server 狀態失敗:', error)
-        alert('切換 Server 狀態失敗: ' + error.message)
+        const errorMsg = error.response?.data?.error || error.message
+        alert(`切換 Server 狀態失敗:\n${errorMsg}`)
+        await loadServers() // 恢復原狀態
       }
     }
 
@@ -378,12 +387,19 @@ export default {
 
     const testServer = async (serverName) => {
       try {
-        const response = await axios.post(`${API_URL}/api/mcp/servers/${serverName}/test`)
+        const response = await axios.post(
+          `${API_URL}/api/mcp/servers/${serverName}/test`,
+          {},
+          { headers: { 'Content-Type': 'application/json' } }
+        )
         if (response.data.success) {
-          alert(`Server ${serverName} 測試成功!`)
+          alert(`Server ${serverName} 測試成功!\n${response.data.message || ''}`)
+        } else {
+          alert(`Server ${serverName} 測試失敗:\n${response.data.error || '未知錯誤'}`)
         }
       } catch (error) {
-        alert(`Server ${serverName} 測試失敗: ` + error.message)
+        const errorMsg = error.response?.data?.error || error.message
+        alert(`Server ${serverName} 測試失敗:\n${errorMsg}`)
       }
     }
 
