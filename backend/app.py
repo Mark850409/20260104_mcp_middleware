@@ -7,6 +7,7 @@ from flask_cors import CORS
 from services.mcp_client import mcp_client
 from routes.chat import chat_bp
 from routes.mcp import mcp_bp
+from routes.line import line_bp
 import os
 
 # 建立 Flask 應用
@@ -18,6 +19,7 @@ CORS(app)
 # 註冊 Blueprint
 app.register_blueprint(chat_bp)
 app.register_blueprint(mcp_bp)
+app.register_blueprint(line_bp)
 
 
 @app.route('/api/health', methods=['GET'])

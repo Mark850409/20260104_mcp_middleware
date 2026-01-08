@@ -66,6 +66,10 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - WEATHER_API_KEY=${WEATHER_API_KEY:-}
+      # LINE Messaging API (選用)
+      - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN:-}
+      - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET:-}
+      - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL:-http://localhost:5000}
     depends_on:
       db:
         condition: service_healthy

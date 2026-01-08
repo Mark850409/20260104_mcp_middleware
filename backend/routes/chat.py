@@ -75,18 +75,45 @@ def list_conversations():
         conn = get_db_connection()
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
+        # 取得活躍的 LINE BOT 設定 (用於同步 LINE 對話的顯示狀態)
         cursor.execute("""
-            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, created_at, updated_at
+            SELECT selected_mcp_servers FROM line_bot_configs 
+            WHERE is_active = TRUE 
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """)
+        bot_config = cursor.fetchone()
+        bot_mcp_servers = []
+        if bot_config and bot_config['selected_mcp_servers']:
+             try:
+                 config_val = bot_config['selected_mcp_servers']
+                 if isinstance(config_val, str):
+                     bot_mcp_servers = json.loads(config_val)
+                 else:
+                     bot_mcp_servers = config_val
+             except:
+                 bot_mcp_servers = []
+        
+        cursor.execute("""
+            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, source, line_user_id, created_at, updated_at
             FROM conversations
             ORDER BY updated_at DESC
         """)
         
         conversations = cursor.fetchall()
         
-        # 解析 mcp_servers JSON
+        # 解析 mcp_servers JSON 並同步 LINE 設定
         for conv in conversations:
-            if conv['mcp_servers']:
-                conv['mcp_servers'] = json.loads(conv['mcp_servers'])
+            if conv['source'] == 'line':
+                #如果是 LINE 對話,強制使用 BOT 全域設定
+                conv['mcp_servers'] = bot_mcp_servers
+                conv['mcp_enabled'] = len(bot_mcp_servers) > 0
+            elif conv['mcp_servers']:
+                if isinstance(conv['mcp_servers'], str):
+                    try:
+                        conv['mcp_servers'] = json.loads(conv['mcp_servers'])
+                    except:
+                        conv['mcp_servers'] = []
         
         cursor.close()
         conn.close()
@@ -112,7 +139,7 @@ def get_conversation(conversation_id):
         
         # 取得對話資訊
         cursor.execute("""
-            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, created_at, updated_at
+            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, source, line_user_id, created_at, updated_at
             FROM conversations
             WHERE id = %s
         """, (conversation_id,))
@@ -124,10 +151,35 @@ def get_conversation(conversation_id):
                 "success": False,
                 "error": "對話不存在"
             }), 404
-        
-        # 解析 mcp_servers JSON
-        if conversation['mcp_servers']:
-            conversation['mcp_servers'] = json.loads(conversation['mcp_servers'])
+            
+        # 處理 MCP 設定
+        if conversation['source'] == 'line':
+            # 取得活躍的 LINE BOT 設定
+            cursor.execute("""
+                SELECT selected_mcp_servers FROM line_bot_configs 
+                WHERE is_active = TRUE 
+                ORDER BY created_at DESC 
+                LIMIT 1
+            """)
+            bot_config = cursor.fetchone()
+            bot_mcp_servers = []
+            if bot_config and bot_config['selected_mcp_servers']:
+                 try:
+                     config_val = bot_config['selected_mcp_servers']
+                     if isinstance(config_val, str):
+                         bot_mcp_servers = json.loads(config_val)
+                     else:
+                         bot_mcp_servers = config_val
+                 except:
+                     bot_mcp_servers = []
+            
+            # 強制使用 BOT 全域設定
+            conversation['mcp_servers'] = bot_mcp_servers
+            conversation['mcp_enabled'] = len(bot_mcp_servers) > 0
+            
+        elif conversation['mcp_servers']:
+            if isinstance(conversation['mcp_servers'], str):
+                conversation['mcp_servers'] = json.loads(conversation['mcp_servers'])
         
         # 取得訊息列表
         cursor.execute("""

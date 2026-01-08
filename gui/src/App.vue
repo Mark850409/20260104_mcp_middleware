@@ -3,7 +3,7 @@
     <!-- 導航列 -->
     <nav class="navbar">
       <div class="nav-brand">
-        <h1>� MCP Platform</h1>
+        <h1>🚀 MCP Platform</h1>
       </div>
       <div class="nav-tabs">
         <button
@@ -17,6 +17,12 @@
           @click="currentView = 'chatbot'"
         >
           💬 AI Chatbot
+        </button>
+        <button
+          :class="['nav-tab', { active: currentView === 'linebot' }]"
+          @click="currentView = 'linebot'"
+        >
+          📱 LINE BOT
         </button>
       </div>
     </nav>
@@ -32,6 +38,11 @@
       <div v-if="currentView === 'chatbot'" class="view-container">
         <Chatbot />
       </div>
+
+      <!-- LINE BOT 頁面 -->
+      <div v-if="currentView === 'linebot'" class="view-container">
+        <LineBotManagement />
+      </div>
     </div>
   </div>
 </template>
@@ -40,12 +51,14 @@
 import { ref } from 'vue'
 import MCPManagement from './components/MCPManagement.vue'
 import Chatbot from './components/Chatbot.vue'
+import LineBotManagement from './components/LineBotManagement.vue'
 
 export default {
   name: 'App',
   components: {
     MCPManagement,
-    Chatbot
+    Chatbot,
+    LineBotManagement
   },
   setup() {
     const currentView = ref('mcp')

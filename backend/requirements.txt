@@ -7,5 +7,7 @@ cryptography>=41.0.0
 openai>=1.0.0
 google-generativeai>=0.3.0
 anthropic>=0.8.0
+# LINE Bot SDK
+line-bot-sdk==3.8.0
 # MCP Client 使用較舊版本以避免與 fastmcp 衝突
 # 或者不使用 mcp 套件,改用直接的 HTTP 通訊
