@@ -1,262 +1,316 @@
-"""
-MCP Configuration Manager - 管理 MCP Server 配置
-採用 Claude Desktop 的配置格式
-"""
+
 import os
 import json
-import re
-from typing import Dict, Any, Optional, List
-from pathlib import Path
 import logging
+import pymysql
+from dotenv import load_dotenv
 
+# Setup logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Load environment variables
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 
 class MCPConfigManager:
-    """MCP 配置管理器 - 處理配置的載入、儲存和驗證"""
-    
-    def __init__(self, config_file: str = "configs/mcp_servers.json"):
-        """
-        初始化配置管理器
-        
-        Args:
-            config_file: 配置檔案路徑
-        """
-        self.config_file = Path(config_file)
-        self.config_data: Dict[str, Any] = {"mcpServers": {}}
-        self._ensure_config_dir()
-        self.load_config()
-    
-    def _ensure_config_dir(self):
-        """確保配置目錄存在"""
-        self.config_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        # 如果配置檔案不存在,建立預設配置
-        if not self.config_file.exists():
-            self._create_default_config()
-    
-    def _create_default_config(self):
-        """建立預設配置檔案"""
-        default_config = {
-            "mcpServers": {}
+    def __init__(self, config_path="configs/mcp_servers.json"):
+        self.config_path = config_path
+        self.db_config = {
+            'host': os.getenv('DB_HOST', 'db'),
+            'port': int(os.getenv('DB_PORT', '3306')),
+            'user': os.getenv('DB_USER', 'mcp_user'),
+            'password': os.getenv('DB_PASSWORD', 'mcp_password'),
+            'database': os.getenv('DB_NAME', 'mcp_platform'),
+            'charset': 'utf8mb4',
+            'cursorclass': pymysql.cursors.DictCursor
         }
-        with open(self.config_file, 'w', encoding='utf-8') as f:
-            json.dump(default_config, f, indent=2, ensure_ascii=False)
-        logger.info(f"建立預設配置檔案: {self.config_file}")
-    
-    def load_config(self) -> Dict[str, Any]:
-        """
-        載入配置檔案
-        
-        Returns:
-            配置資料字典
-        """
+        self.use_db = True  # Default to verify DB connection
+
+    def _get_db_connection(self):
         try:
-            with open(self.config_file, 'r', encoding='utf-8') as f:
-                self.config_data = json.load(f)
-            
-            # 確保有 mcpServers 鍵
-            if "mcpServers" not in self.config_data:
-                self.config_data["mcpServers"] = {}
-            
-            # 替換環境變數
-            self._resolve_env_vars()
-            
-            logger.info(f"成功載入配置檔案: {self.config_file}")
-            return self.config_data
+            return pymysql.connect(**self.db_config)
         except Exception as e:
-            logger.error(f"載入配置檔案失敗: {e}")
-            self.config_data = {"mcpServers": {}}
-            return self.config_data
-    
-    def save_config(self) -> bool:
+            logger.error(f"Database connection failed: {e}")
+            return None
+
+    def load_config(self):
         """
-        儲存配置到檔案
+        Load configuration from database, fallback to JSON file if DB fails
+        """
+        config = {"mcpServers": {}}
         
-        Returns:
-            是否成功儲存
+        if self.use_db:
+            conn = self._get_db_connection()
+            if conn:
+                try:
+                    with conn.cursor() as cursor:
+                        cursor.execute("SELECT name, description, command, args, env, type, enabled, url, headers FROM mcp_servers")
+                        servers = cursor.fetchall()
+                        
+                        for server in servers:
+                            config["mcpServers"][server['name']] = {
+                                "command": server['command'],
+                                "args": json.loads(server['args']) if isinstance(server['args'], str) else server['args'],
+                                "env": json.loads(server['env']) if isinstance(server['env'], str) and server['env'] else {},
+                                "type": server['type'],
+                                "enabled": bool(server['enabled']),
+                                "description": server['description'],
+                                "url": server.get('url'),
+                                "headers": json.loads(server['headers']) if isinstance(server.get('headers'), str) and server['headers'] else {}
+                            }
+                    logger.info(f"Loaded {len(config['mcpServers'])} servers from database")
+                    return config
+                except Exception as e:
+                    logger.error(f"Failed to load from DB: {e}")
+                finally:
+                    conn.close()
+
+        # Fallback to JSON file
+        if os.path.exists(self.config_path):
+            try:
+                with open(self.config_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error(f"Error loading config file: {e}")
+        
+        return config
+
+    def save_config(self, config):
         """
+        Save configuration to database (sync) and JSON file
+        """
+        # Save to JSON file as backup
         try:
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(self.config_data, f, indent=2, ensure_ascii=False)
-            logger.info(f"成功儲存配置檔案: {self.config_file}")
-            return True
+            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+            with open(self.config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            logger.error(f"儲存配置檔案失敗: {e}")
-            return False
+            logger.error(f"Error saving to JSON file: {e}")
+
+    def add_server(self, name, server_config):
+        """
+        Add a new server to the database
+        """
+        # Validate first
+        self.validate_server_config(server_config)
+        
+        conn = self._get_db_connection()
+        if conn:
+            try:
+                with conn.cursor() as cursor:
+                    sql = """
+                        INSERT INTO mcp_servers (name, description, command, args, env, type, enabled, url, headers)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                    cursor.execute(sql, (
+                        name,
+                        server_config.get('description', ''),
+                        server_config.get('command', ''),  # Default to empty string
+                        json.dumps(server_config.get('args', [])),
+                        json.dumps(server_config.get('env', {})),
+                        server_config.get('type', 'python'),
+                        server_config.get('enabled', True),
+                        server_config.get('url', ''),
+                        json.dumps(server_config.get('headers', {}))
+                    ))
+                conn.commit()
+                logger.info(f"Added server '{name}' to database")
+            except pymysql.err.IntegrityError as e:
+                # 1062 is Duplicate entry code
+                if e.args[0] == 1062:
+                    logger.warning(f"Server '{name}' already exists")
+                    raise ValueError(f"Server with name '{name}' already exists")
+                logger.error(f"Database integrity error: {e}")
+                raise
+            except Exception as e:
+                logger.error(f"Failed to add server to DB: {e}")
+                raise
+            finally:
+                conn.close()
+        
+        # Sync with JSON
+        try:
+            current_config = self.load_config()
+            self.save_config(current_config)
+        except Exception as sync_error:
+            logger.error(f"Syncing DB to JSON failed, but DB update was successful: {sync_error}")
+            # Do not raise, DB update is the primary success
+        # This technically re-saves what we just loaded, effectively syncing if load_config works. 
+        # Actually load_config reads from DB, so save_config(load_config()) syncs DB -> JSON.
+
+    def update_server(self, name, server_config):
+        """
+        Update an existing server in the database
+        """
+        self.validate_server_config(server_config)
+        
+        conn = self._get_db_connection()
+        if conn:
+            try:
+                with conn.cursor() as cursor:
+                    sql = """
+                        UPDATE mcp_servers 
+                        SET description=%s, command=%s, args=%s, env=%s, type=%s, enabled=%s, url=%s, headers=%s
+                        WHERE name=%s
+                    """
+                    cursor.execute(sql, (
+                        server_config.get('description', ''),
+                        server_config.get('command', ''),
+                        json.dumps(server_config.get('args', [])),
+                        json.dumps(server_config.get('env', {})),
+                        server_config.get('type', 'python'),
+                        server_config.get('enabled', True),
+                        server_config.get('url', ''),
+                        json.dumps(server_config.get('headers', {})),
+                        name
+                    ))
+                conn.commit()
+                logger.info(f"Updated server '{name}' in database")
+            except Exception as e:
+                logger.error(f"Failed to update server in DB: {e}")
+                raise
+            finally:
+                conn.close()
+        
+        # Sync
+        try:
+            self.save_config(self.load_config())
+        except Exception as sync_error:
+            logger.error(f"Syncing DB to JSON failed, but DB update was successful: {sync_error}")
+
+    def delete_server(self, name):
+        """
+        Delete a server from the database
+        """
+        conn = self._get_db_connection()
+        if conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute("DELETE FROM mcp_servers WHERE name=%s", (name,))
+                conn.commit()
+                logger.info(f"Deleted server '{name}' from database")
+            except Exception as e:
+                logger.error(f"Failed to delete server from DB: {e}")
+                raise
+            finally:
+                conn.close()
+        
+        # Sync
+        try:
+            self.save_config(self.load_config())
+        except Exception as sync_error:
+            logger.error(f"Syncing DB to JSON failed, but DB update was successful: {sync_error}")
     
-    def _resolve_env_vars(self):
-        """替換配置中的環境變數 ${VAR_NAME}"""
-        def resolve_value(value):
-            if isinstance(value, str):
-                # 尋找 ${VAR_NAME} 格式的環境變數
-                pattern = r'\$\{([^}]+)\}'
-                matches = re.findall(pattern, value)
-                for var_name in matches:
-                    env_value = os.getenv(var_name, '')
-                    value = value.replace(f'${{{var_name}}}', env_value)
-                return value
-            elif isinstance(value, dict):
-                return {k: resolve_value(v) for k, v in value.items()}
-            elif isinstance(value, list):
-                return [resolve_value(item) for item in value]
-            return value
-        
-        self.config_data = resolve_value(self.config_data)
-    
-    def list_servers(self) -> List[Dict[str, Any]]:
+    def toggle_server(self, name, enabled):
         """
-        列出所有 MCP Server
-        
-        Returns:
-            Server 列表
+        Toggle server enabled status
         """
-        servers = []
-        for name, config in self.config_data.get("mcpServers", {}).items():
-            server_info = {
-                "name": name,
-                **config
-            }
-            servers.append(server_info)
-        return servers
-    
-    def get_server(self, server_name: str) -> Optional[Dict[str, Any]]:
-        """
-        取得特定 Server 的配置
-        
-        Args:
-            server_name: Server 名稱
-            
-        Returns:
-            Server 配置,如果不存在則返回 None
-        """
-        return self.config_data.get("mcpServers", {}).get(server_name)
-    
-    def add_server(self, server_name: str, config: Dict[str, Any]) -> bool:
-        """
-        新增 MCP Server
-        
-        Args:
-            server_name: Server 名稱
-            config: Server 配置
-            
-        Returns:
-            是否成功新增
-        """
-        if server_name in self.config_data.get("mcpServers", {}):
-            logger.warning(f"Server 已存在: {server_name}")
-            return False
-        
-        # 驗證配置
-        if not self.validate_server_config(config):
-            logger.error(f"Server 配置驗證失敗: {server_name}")
-            return False
-        
-        self.config_data["mcpServers"][server_name] = config
-        return self.save_config()
-    
-    def update_server(self, server_name: str, config: Dict[str, Any]) -> bool:
-        """
-        更新 MCP Server 配置
-        
-        Args:
-            server_name: Server 名稱
-            config: 新的配置
-            
-        Returns:
-            是否成功更新
-        """
-        if server_name not in self.config_data.get("mcpServers", {}):
-            logger.warning(f"Server 不存在: {server_name}")
-            return False
-        
-        # 驗證配置
-        if not self.validate_server_config(config):
-            logger.error(f"Server 配置驗證失敗: {server_name}")
-            return False
-        
-        self.config_data["mcpServers"][server_name] = config
-        return self.save_config()
-    
-    def delete_server(self, server_name: str) -> bool:
-        """
-        刪除 MCP Server
-        
-        Args:
-            server_name: Server 名稱
-            
-        Returns:
-            是否成功刪除
-        """
-        if server_name not in self.config_data.get("mcpServers", {}):
-            logger.warning(f"Server 不存在: {server_name}")
-            return False
-        
-        del self.config_data["mcpServers"][server_name]
-        return self.save_config()
-    
-    def toggle_server(self, server_name: str, enabled: bool) -> bool:
-        """
-        啟用/停用 MCP Server
-        
-        Args:
-            server_name: Server 名稱
-            enabled: 是否啟用
-            
-        Returns:
-            是否成功切換
-        """
-        if server_name not in self.config_data.get("mcpServers", {}):
-            logger.warning(f"Server 不存在: {server_name}")
-            return False
-        
-        self.config_data["mcpServers"][server_name]["enabled"] = enabled
-        return self.save_config()
-    
-    def validate_server_config(self, config: Dict[str, Any]) -> bool:
-        """
-        驗證 Server 配置
-        
-        Args:
-            config: Server 配置
-            
-        Returns:
-            配置是否有效
-        """
-        # 必要欄位
-        required_fields = ["command", "args"]
-        for field in required_fields:
-            if field not in config:
-                logger.error(f"缺少必要欄位: {field}")
-                return False
-        
-        # 驗證 command 類型
-        if not isinstance(config["command"], str):
-            logger.error("command 必須是字串")
-            return False
-        
-        # 驗證 args 類型
-        if not isinstance(config["args"], list):
-            logger.error("args 必須是陣列")
-            return False
-        
-        # 驗證 env (如果存在)
-        if "env" in config and not isinstance(config["env"], dict):
-            logger.error("env 必須是字典")
-            return False
-        
+        conn = self._get_db_connection()
+        if conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute("UPDATE mcp_servers SET enabled=%s WHERE name=%s", (enabled, name))
+                conn.commit()
+            except Exception as e:
+                logger.error(f"Failed to toggle server in DB: {e}")
+                raise
+            finally:
+                conn.close()
+        # Sync
+        try:
+            self.save_config(self.load_config())
+        except Exception as sync_error:
+            logger.error(f"Syncing DB to JSON failed, but DB update was successful: {sync_error}")
         return True
-    
-    def get_enabled_servers(self) -> List[Dict[str, Any]]:
-        """
-        取得所有啟用的 Server
         
-        Returns:
-            啟用的 Server 列表
+    def validate_server_config(self, config):
         """
-        servers = self.list_servers()
-        return [s for s in servers if s.get("enabled", True)]
+        Validate server configuration
+        """
+        if 'command' not in config:
+            # Allow missing command for SSE/remote types
+            if config.get('type') in ['sse', 'remote']:
+                pass
+            else:
+                raise ValueError("Configuration must contain 'command'")
+        if 'args' in config and not isinstance(config['args'], list):
+            # If args is not a list, try to parse it if it's a JSON string, otherwise error
+            if isinstance(config['args'], str):
+                try:
+                    config['args'] = json.loads(config['args'])
+                except:
+                    raise ValueError("'args' must be a list")
+            else:
+                raise ValueError("'args' must be a list")
 
+    def export_config(self):
+        """Export current configuration as dictionary"""
+        return self.load_config()
 
-# 建立全域配置管理器實例
+    def import_config(self, config_data, overwrite=False):
+        """
+        Import configuration from dictionary
+        """
+        if "mcpServers" not in config_data:
+            raise ValueError("Invalid config format: missing 'mcpServers' key")
+            
+        results = {"success": 0, "failed": 0, "skipped": 0, "errors": []}
+        
+        new_servers = config_data["mcpServers"]
+        current_servers = self.load_config().get("mcpServers", {})
+        
+        for name, config in new_servers.items():
+            try:
+                exists = name in current_servers
+                if exists and not overwrite:
+                    results["skipped"] += 1
+                    continue
+                
+                # Ensure type is set
+                if "type" not in config:
+                    # Auto-detect type
+                    cmd = config.get("command", "")
+                    if cmd in ["node", "npx"]:
+                        config["type"] = "nodejs"
+                    elif cmd in ["python", "python3", "uvx"]:
+                        config["type"] = "python"
+                    else:
+                        config["type"] = "python" # Default
+                
+                if exists:
+                    self.update_server(name, config)
+                else:
+                    self.add_server(name, config)
+                
+                results["success"] += 1
+            except Exception as e:
+                results["failed"] += 1
+                results["errors"].append(f"{name}: {str(e)}")
+                
+        return results
+
+    def list_servers(self):
+        """List all servers"""
+        return self.load_config()
+
+    def get_server(self, server_name):
+        """Get configuration for a specific server"""
+        config = self.load_config()
+        return config.get("mcpServers", {}).get(server_name)
+
+    def get_enabled_servers(self):
+        """
+        Get all enabled servers as a list of dictionaries with 'name' field injected
+        """
+        config = self.load_config()
+        enabled_servers = []
+        for name, server_config in config.get("mcpServers", {}).items():
+            if server_config.get("enabled", True):
+                # Create a copy with name injected
+                server_data = server_config.copy()
+                server_data['name'] = name
+                enabled_servers.append(server_data)
+        return enabled_servers
+
+# Initialize global config manager
 config_manager = MCPConfigManager()

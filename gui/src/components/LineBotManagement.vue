@@ -8,6 +8,20 @@
 
     <!-- 主要內容區 -->
     <div class="container">
+      <!-- 使用說明 -->
+      <div class="card info-card">
+        <h3>📖 設定說明</h3>
+        <ol class="instructions">
+          <li>前往 <a href="https://developers.line.biz/" target="_blank">LINE Developers Console</a> 建立 Messaging API Channel</li>
+          <li>取得 <strong>Channel Access Token</strong> 和 <strong>Channel Secret</strong></li>
+          <li>在此頁面新增 LINE BOT 設定,填入上述資訊</li>
+          <li>複製產生的 <strong>Webhook URL</strong></li>
+          <li>回到 LINE Developers Console,在 Messaging API 設定中貼上 Webhook URL</li>
+          <li>啟用 Webhook 並關閉自動回覆訊息</li>
+          <li>開始使用您的 LINE BOT!</li>
+        </ol>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <h3>🤖 LINE BOT 設定</h3>
@@ -54,12 +68,14 @@
               <div class="info-row">
                 <span class="label">MCP 工具:</span>
                 <div class="mcp-servers">
-                  <span v-if="!config.selected_mcp_servers || config.selected_mcp_servers.length === 0" class="no-tools">
-                    未選擇工具
-                  </span>
-                  <span v-else class="tool-badge" v-for="server in config.selected_mcp_servers" :key="server">
-                    {{ server }}
-                  </span>
+                  <template v-if="getValidServers(config.selected_mcp_servers).length === 0">
+                    <span class="no-tools">未選擇工具</span>
+                  </template>
+                  <template v-else>
+                    <span class="tool-badge" v-for="server in getValidServers(config.selected_mcp_servers)" :key="server">
+                      {{ server }}
+                    </span>
+                  </template>
                 </div>
               </div>
               <div class="info-row">
@@ -80,19 +96,6 @@
         </div>
       </div>
 
-      <!-- 使用說明 -->
-      <div class="card info-card">
-        <h3>📖 設定說明</h3>
-        <ol class="instructions">
-          <li>前往 <a href="https://developers.line.biz/" target="_blank">LINE Developers Console</a> 建立 Messaging API Channel</li>
-          <li>取得 <strong>Channel Access Token</strong> 和 <strong>Channel Secret</strong></li>
-          <li>在此頁面新增 LINE BOT 設定,填入上述資訊</li>
-          <li>複製產生的 <strong>Webhook URL</strong></li>
-          <li>回到 LINE Developers Console,在 Messaging API 設定中貼上 Webhook URL</li>
-          <li>啟用 Webhook 並關閉自動回覆訊息</li>
-          <li>開始使用您的 LINE BOT!</li>
-        </ol>
-      </div>
     </div>
 
     <!-- 新增/編輯對話框 -->
@@ -166,6 +169,7 @@
 <script>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import Swal from 'sweetalert2'
 
 export default {
   name: 'LineBotManagement',
@@ -196,7 +200,11 @@ export default {
         }
       } catch (error) {
         console.error('載入 LINE BOT 設定失敗:', error)
-        alert('載入設定失敗: ' + error.message)
+        Swal.fire({
+          icon: 'error',
+          title: '載入失敗',
+          text: '載入 LINE BOT 設定失敗: ' + error.message
+        })
       } finally {
         loading.value = false
       }
@@ -207,7 +215,24 @@ export default {
       try {
         const response = await axios.get(`${API_URL}/api/mcp/servers`)
         if (response.data.success) {
-          availableServers.value = response.data.data.filter(s => s.enabled)
+          const result = response.data.data
+          let servers = []
+          
+          if (result.mcpServers) {
+            servers = Object.entries(result.mcpServers).map(([name, config]) => ({
+              name,
+              ...config
+            }))
+          } else if (Array.isArray(result)) {
+            servers = result
+          } else if (typeof result === 'object') {
+            servers = Object.entries(result).map(([name, config]) => ({
+              name,
+              ...config
+            }))
+          }
+          
+          availableServers.value = servers.filter(s => s.enabled)
         }
       } catch (error) {
         console.error('載入 MCP Servers 失敗:', error)
@@ -216,20 +241,48 @@ export default {
 
     // 切換啟用狀態
     const toggleConfig = async (configId, isActive) => {
+      const loadingTimer = setTimeout(() => {
+        Swal.fire({
+          title: '狀態更新中...',
+          text: '正在更新 LINE BOT 狀態，請稍後...',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+        })
+      }, 3000)
+
       try {
         const response = await axios.post(`${API_URL}/api/line/configs/${configId}/toggle`)
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
+
         if (response.data.success) {
           await loadConfigs()
           if (isActive) {
-            alert('LINE BOT 已啟用!')
+            Swal.fire({
+              icon: 'success',
+              title: '已啟用',
+              text: 'LINE BOT 已啟用!',
+              timer: 1500,
+              showConfirmButton: false
+            })
           }
         } else {
-          alert('切換狀態失敗: ' + (response.data.error || '未知錯誤'))
+          Swal.fire({
+            icon: 'error',
+            title: '切換失敗',
+            text: response.data.error || '未知錯誤'
+          })
           await loadConfigs()
         }
       } catch (error) {
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
         console.error('切換狀態失敗:', error)
-        alert('切換狀態失敗: ' + error.message)
+        Swal.fire({
+          icon: 'error',
+          title: '切換失敗',
+          text: error.message
+        })
         await loadConfigs()
       }
     }
@@ -247,7 +300,18 @@ export default {
 
     // 刪除設定
     const deleteConfig = async (configId) => {
-      if (!confirm('確定要刪除此 LINE BOT 設定嗎?')) return
+      const result = await Swal.fire({
+        title: '確定要刪除嗎?',
+        text: '確定要刪除此 LINE BOT 設定嗎?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: '確定刪除',
+        cancelButtonText: '取消'
+      })
+      
+      if (!result.isConfirmed) return
 
       try {
         const response = await axios.delete(`${API_URL}/api/line/configs/${configId}`)
@@ -256,7 +320,11 @@ export default {
         }
       } catch (error) {
         console.error('刪除設定失敗:', error)
-        alert('刪除設定失敗: ' + error.message)
+        Swal.fire({
+          icon: 'error',
+          title: '刪除失敗',
+          text: error.message
+        })
       }
     }
 
@@ -275,9 +343,22 @@ export default {
     const saveConfig = async () => {
       // 驗證
       if (!configForm.value.bot_name) {
-        alert('請輸入 BOT 名稱')
+        Swal.fire({
+          icon: 'warning',
+          title: '欄位未填',
+          text: '請輸入 BOT 名稱'
+        })
         return
       }
+
+      const loadingTimer = setTimeout(() => {
+        Swal.fire({
+          title: '正在儲存...',
+          text: '正在更新 LINE BOT 設定，請稍後...',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+        })
+      }, 3000)
 
       if (editingConfig.value) {
         // 更新
@@ -292,26 +373,49 @@ export default {
             `${API_URL}/api/line/configs/${editingConfig.value.id}`,
             updateData
           )
+          clearTimeout(loadingTimer)
+          if (Swal.isVisible()) Swal.close()
+
           if (response.data.success) {
             await loadConfigs()
             closeDialog()
           }
         } catch (error) {
+          clearTimeout(loadingTimer)
+          if (Swal.isVisible()) Swal.close()
           console.error('更新設定失敗:', error)
-          alert('更新設定失敗: ' + error.message)
+          Swal.fire({
+            icon: 'error',
+            title: '更新失敗',
+            text: error.message
+          })
         }
       } else {
         // 新增
         try {
           const response = await axios.post(`${API_URL}/api/line/configs`, configForm.value)
+          clearTimeout(loadingTimer)
+          if (Swal.isVisible()) Swal.close()
+
           if (response.data.success) {
             await loadConfigs()
             closeDialog()
-            alert('LINE BOT 設定已建立!\n\nWebhook URL: ' + response.data.data.webhook_url)
+            Swal.fire({
+              icon: 'success',
+              title: '建立成功',
+              html: `LINE BOT 設定已建立!<br><br>Webhook URL: <code style="font-size: 0.8em; background: #eee; padding: 5px;">${response.data.data.webhook_url}</code>`,
+              confirmButtonText: '太棒了'
+            })
           }
         } catch (error) {
+          clearTimeout(loadingTimer)
+          if (Swal.isVisible()) Swal.close()
           console.error('建立設定失敗:', error)
-          alert('建立設定失敗: ' + error.message)
+          Swal.fire({
+            icon: 'error',
+            title: '建立失敗',
+            text: error.message
+          })
         }
       }
     }
@@ -319,10 +423,22 @@ export default {
     // 複製 Webhook URL
     const copyWebhookUrl = (url) => {
       navigator.clipboard.writeText(url).then(() => {
-        alert('Webhook URL 已複製到剪貼簿!')
+        Swal.fire({
+          icon: 'success',
+          title: '複製成功',
+          text: 'Webhook URL 已複製到剪貼簿!',
+          timer: 1500,
+          showConfirmButton: false,
+          toast: true,
+          position: 'top-end'
+        })
       }).catch(err => {
         console.error('複製失敗:', err)
-        alert('複製失敗,請手動複製')
+        Swal.fire({
+          icon: 'error',
+          title: '複製失敗',
+          text: '請手動複製'
+        })
       })
     }
 
@@ -332,9 +448,17 @@ export default {
       return date.toLocaleString('zh-TW')
     }
 
+    // 顯示過濾後的可用 Servers
+    const getValidServers = (selectedServers) => {
+      if (!selectedServers || !Array.isArray(selectedServers)) return []
+      const availableNames = availableServers.value.map(s => s.name)
+      return selectedServers.filter(name => availableNames.includes(name))
+    }
+
     // 初始化
     onMounted(async () => {
       await loadConfigs()
+      await loadAvailableServers()
     })
 
     return {
@@ -351,7 +475,8 @@ export default {
       closeDialog,
       saveConfig,
       copyWebhookUrl,
-      formatDate
+      formatDate,
+      getValidServers
     }
   }
 }

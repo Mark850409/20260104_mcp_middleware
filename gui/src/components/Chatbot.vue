@@ -123,7 +123,6 @@
                 @click="showMcpMenu = !showMcpMenu"
                 :title="selectedMcpServers.length > 0 ? `已選 ${selectedMcpServers.length} 個工具` : '新增工具'"
                 :class="{ 'has-selection': selectedMcpServers.length > 0 }"
-                :disabled="currentConversationSource === 'line'"
               >
                 <span>➕</span>
               </button>
@@ -169,9 +168,9 @@
           <!-- 下排: 工具標籤 與 右側動作 -->
           <div class="input-bottom-row">
             <div class="active-tools-display">
-              <span v-if="selectedMcpServers.length > 0" class="mini-label">已啟用:</span>
+              <span v-if="validSelectedMcpServers.length > 0" class="mini-label">已啟用:</span>
               <span 
-                v-for="server in selectedMcpServers" 
+                v-for="server in validSelectedMcpServers" 
                 :key="server" 
                 class="mini-chip"
                 @click="toggleMcpServer(server)"
@@ -186,7 +185,6 @@
                 <button 
                   class="btn-model-trigger" 
                   @click="showModelMenu = !showModelMenu"
-                  :disabled="currentConversationSource === 'line'"
                 >
                   <span class="provider-dot" :class="selectedProvider"></span>
                   {{ selectedModel }}
@@ -244,6 +242,7 @@
 <script>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import axios from 'axios'
+import Swal from 'sweetalert2'
 
 export default {
   name: 'Chatbot',
@@ -307,7 +306,24 @@ export default {
       try {
         const response = await axios.get(`${API_URL}/api/mcp/servers`)
         if (response.data.success) {
-          availableMcpServers.value = response.data.data
+          const result = response.data.data
+          let servers = []
+          
+          if (result.mcpServers) {
+            servers = Object.entries(result.mcpServers).map(([name, config]) => ({
+              name,
+              ...config
+            }))
+          } else if (Array.isArray(result)) {
+            servers = result
+          } else if (typeof result === 'object') {
+            servers = Object.entries(result).map(([name, config]) => ({
+              name,
+              ...config
+            }))
+          }
+          
+          availableMcpServers.value = servers
         }
       } catch (error) {
         console.error('載入 MCP servers 失敗:', error)
@@ -315,25 +331,67 @@ export default {
     }
     
     const clearAllConversations = async () => {
-      if (!confirm('確定要清空所有對話紀錄嗎?此操作無法復原!')) {
-        return
-      }
+      const result = await Swal.fire({
+        title: '確定要清空嗎?',
+        text: '確定要清空所有對話紀錄嗎? 此操作無法復原!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '確定清空',
+        cancelButtonText: '取消'
+      })
       
+      if (!result.isConfirmed) return
+      
+      const loadingTimer = setTimeout(() => {
+        Swal.fire({
+          title: '正在清空...',
+          text: '正在刪除所有對話紀錄，請稍後...',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+        })
+      }, 3000)
+
       try {
         const response = await axios.delete(`${API_URL}/api/chat/conversations/clear-all`)
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
+
         if (response.data.success) {
           conversations.value = []
           currentConversationId.value = null
           currentMessages.value = []
-          alert(response.data.message)
+          Swal.fire({
+            icon: 'success',
+            title: '已清空',
+            text: response.data.message,
+            timer: 1500,
+            showConfirmButton: false
+          })
         }
       } catch (error) {
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
         console.error('清空對話失敗:', error)
-        alert('清空對話失敗: ' + error.message)
+        Swal.fire({
+          icon: 'error',
+          title: '清空失敗',
+          text: error.message
+        })
       }
     }
     
     const createNewConversation = async () => {
+      const loadingTimer = setTimeout(() => {
+        Swal.fire({
+          title: '正在建立對話...',
+          text: '正在初始化聊天環境，請稍後...',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+        })
+      }, 3000)
+
       try {
         const response = await axios.post(`${API_URL}/api/chat/conversations`, {
           title: `新對話 ${new Date().toLocaleString()}`,
@@ -342,14 +400,22 @@ export default {
           mcp_enabled: selectedMcpServers.value.length > 0,
           mcp_servers: selectedMcpServers.value
         })
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
         
         if (response.data.success) {
           await loadConversations()
           selectConversation(response.data.conversation_id)
         }
       } catch (error) {
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
         console.error('建立對話失敗:', error)
-        alert('建立對話失敗: ' + error.message)
+        Swal.fire({
+          icon: 'error',
+          title: '建立對話失敗',
+          text: error.message
+        })
       }
     }
     
@@ -429,6 +495,12 @@ export default {
       }
     }
     
+    // 工具過濾
+    const validSelectedMcpServers = computed(() => {
+      const availableNames = availableMcpServers.value.map(s => s.name)
+      return selectedMcpServers.value.filter(name => availableNames.includes(name))
+    })
+
     const sendMessage = async () => {
       if (!userInput.value.trim() || isLoading.value) return
       
@@ -436,6 +508,15 @@ export default {
       userInput.value = ''
       isLoading.value = true
       
+      const loadingTimer = setTimeout(() => {
+        Swal.fire({
+          title: '正在等待回應...',
+          text: 'AI 正在處理您的請求，請稍後...',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+        })
+      }, 3000)
+
       // 立即顯示使用者訊息
       currentMessages.value.push({
         role: 'user',
@@ -476,9 +557,17 @@ export default {
             scrollToBottom()
           }
         }
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
       } catch (error) {
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
         console.error('發送訊息失敗:', error)
-        alert('發送訊息失敗: ' + (error.response?.data?.error || error.message))
+        Swal.fire({
+          icon: 'error',
+          title: '發送失敗',
+          text: (error.response?.data?.error || error.message)
+        })
       } finally {
         isLoading.value = false
       }
@@ -487,12 +576,6 @@ export default {
     const updateConversationConfig = async () => {
       // 只有在選中了對話,且不是正在載入配置時才執行
       if (!currentConversationId.value || isLoadingConfig.value) return
-      
-      // LINE 對話不允許修改配置
-      if (currentConversationSource.value === 'line') {
-        console.log("[Chatbot] LINE 對話不允許修改配置")
-        return
-      }
       
       console.log("[Chatbot] 自動同步配置到後端...")
       try {
@@ -644,7 +727,9 @@ export default {
       adjustTextareaHeight,
       inputArea,
       showMcpMenu,
-      showModelMenu
+      showModelMenu,
+      currentConversationSource,
+      validSelectedMcpServers
     }
   }
 }

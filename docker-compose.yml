@@ -35,8 +35,31 @@ services:
     environment:
       - MCP_PORT=8000
       - WEATHER_API_KEY=${WEATHER_API_KEY:-}
+      - NODE_ENV=production
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # 掛載 Docker socket
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # SSE Test Server (用於測試遠端 MCP 連線)
+  mcp-sse-test:
+    build:
+      context: ./mcp-server
+      dockerfile: Dockerfile
+    container_name: mcp-sse-test
+    command: python test_sse_server_mcp_tool.py
+    ports:
+      - "8001:8001"
+    networks:
+      - mcp-network
+    environment:
+      - WEATHER_API_KEY=${WEATHER_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 10s
       timeout: 5s
       retries: 5

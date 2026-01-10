@@ -4,6 +4,22 @@
     <header class="page-header">
       <h2>🛠️ MCP 工具管理</h2>
       <p class="subtitle">管理與操作 Model Context Protocol 工具</p>
+      
+      <div class="header-actions" style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
+        <button @click="exportConfig" class="btn" style="background-color: #4b5563; color: white;">
+          📤 匯出配置
+        </button>
+        <button @click="triggerImport" class="btn" style="background-color: #2563eb; color: white;">
+          📥 匯入配置
+        </button>
+        <input 
+          type="file" 
+          ref="fileInput" 
+          style="display: none;"
+          accept=".json" 
+          @change="handleImportFile" 
+        />
+      </div>
     </header>
 
     <!-- Tab 切換 -->
@@ -54,17 +70,34 @@
               </div>
 
               <div class="server-info">
-                <div class="info-row">
-                  <span class="label">Command:</span>
-                  <code>{{ server.command }}</code>
-                </div>
-                <div class="info-row">
-                  <span class="label">Args:</span>
-                  <code>{{ server.args.join(' ') }}</code>
-                </div>
+                <!-- HTTP/SSE Server -->
+                <template v-if="server.url">
+                    <div class="info-row">
+                        <span class="label">URL:</span>
+                        <code class="url-text">{{ server.url }}</code>
+                    </div>
+                </template>
+                
+                <!-- Local/Node Server -->
+                <template v-else>
+                    <div class="info-row">
+                        <span class="label">Command:</span>
+                        <code>{{ server.command }}</code>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Args:</span>
+                        <code>{{ server.args ? server.args.join(' ') : '' }}</code>
+                    </div>
+                </template>
+
+                <!-- Env / Headers -->
                 <div v-if="server.env && Object.keys(server.env).length > 0" class="info-row">
                   <span class="label">Env:</span>
                   <code>{{ Object.keys(server.env).length }} 個變數</code>
+                </div>
+                <div v-if="server.headers && Object.keys(server.headers).length > 0" class="info-row">
+                  <span class="label">Headers:</span>
+                  <code>{{ Object.keys(server.headers).length }} 個變數</code>
                 </div>
               </div>
 
@@ -72,8 +105,12 @@
                 <button @click="editServer(server)" class="btn btn-sm btn-secondary">
                   ✏️ 編輯
                 </button>
-                <button @click="testServer(server.name)" class="btn btn-sm btn-info">
-                  🔍 測試
+                <button 
+                  @click="testServer(server.name)" 
+                  :disabled="testingServers[server.name]" 
+                  class="btn btn-sm btn-info"
+                >
+                  {{ testingServers[server.name] ? '🔍 測試中...' : '🔍 測試' }}
                 </button>
                 <button @click="deleteServer(server.name)" class="btn btn-sm btn-danger">
                   🗑️ 刪除
@@ -239,27 +276,52 @@
               placeholder="Server 的功能描述"
             />
           </div>
+          
+          <!-- 工具來源選擇器 -->
           <div class="form-group">
-            <label>Command *</label>
-            <select v-model="serverForm.command" class="form-select">
-              <option value="python">python</option>
-              <option value="npx">npx</option>
-              <option value="node">node</option>
-              <option value="uvx">uvx</option>
+            <label>工具來源 *</label>
+            <select v-model="serverForm.source" class="form-select" @change="onSourceChange">
+              <option value="local">本地工具 (自己開發)</option>
+              <option value="npm">線上工具 (npm 套件)</option>
             </select>
           </div>
+          
+          <!-- 工具配置 (Command & Args) -->
           <div class="form-group">
-            <label>Args *</label>
-            <div class="args-input">
-              <div v-for="(arg, index) in serverForm.args" :key="index" class="arg-row">
-                <input v-model="serverForm.args[index]" class="form-input" placeholder="參數" />
-                <button @click="removeArg(index)" class="btn btn-sm btn-danger">✕</button>
-              </div>
-              <button @click="addArg" class="btn btn-sm btn-secondary">➕ 新增參數</button>
+              <label>Command *</label>
+              <select v-model="serverForm.command" class="form-select">
+                <option value="python">python</option>
+                <option value="uvx">uvx</option>
+                <option value="npx">npx</option>
+                <option value="http">http (SSE)</option>
+              </select>
             </div>
-          </div>
+            
+            <!-- HTTP URL 配置 -->
+            <div v-if="serverForm.command === 'http'" class="form-group">
+                <label>Server URL *</label>
+                <input 
+                    v-model="serverForm.url" 
+                    class="form-input" 
+                    placeholder="https://example.com/sse"
+                />
+            </div>
+
+            <!-- 本地/NPX 工具參數 -->
+            <div v-else class="form-group">
+              <label>Args *</label>
+              <div class="args-input">
+                <div v-for="(arg, index) in serverForm.args" :key="index" class="arg-row">
+                  <input v-model="serverForm.args[index]" class="form-input" placeholder="檔案路徑或參數" />
+                  <button @click="removeArg(index)" class="btn btn-sm btn-danger">✕</button>
+                </div>
+                <button @click="addArg" class="btn btn-sm btn-secondary">➕ 新增參數</button>
+              </div>
+            </div>
+          
+          <!-- 環境變數 / Headers -->
           <div class="form-group">
-            <label>Environment Variables</label>
+            <label>{{ serverForm.command === 'http' ? 'Headers' : 'Environment Variables' }}</label>
             <div class="env-input">
               <div v-for="(value, key) in serverForm.env" :key="key" class="env-row">
                 <input :value="key" @input="updateEnvKey($event, key)" class="form-input" placeholder="KEY" />
@@ -272,7 +334,9 @@
         </div>
         <div class="modal-footer">
           <button @click="closeServerDialog" class="btn btn-secondary">取消</button>
-          <button @click="saveServer" class="btn btn-primary">儲存</button>
+          <button @click="saveServer" :disabled="savingServer" class="btn btn-primary">
+            {{ savingServer ? '儲存中...' : '儲存' }}
+          </button>
         </div>
       </div>
     </div>
@@ -280,8 +344,9 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
+import Swal from 'sweetalert2'
 
 export default {
   name: 'MCPManagement',
@@ -302,14 +367,21 @@ export default {
     const loadingServers = ref(false)
     const showAddServerDialog = ref(false)
     const editingServer = ref(null)
+    const savingServer = ref(false)
+    const testingServers = reactive({})
     const serverForm = ref({
       name: '',
       description: '',
+      source: 'local',  // 預設為本地工具
       command: 'python',
       args: [''],
+      url: '',
       env: {},
       enabled: true
     })
+    
+    // 檔案匯入
+    const fileInput = ref(null)
 
     // Tools 管理
     const selectedServerForTools = ref('')
@@ -342,69 +414,162 @@ export default {
       try {
         const response = await axios.get(`${API_URL}/api/mcp/servers`)
         if (response.data.success) {
-          servers.value = response.data.data
+          const result = response.data.data
+          // 如果回傳的是物件格式 (新的 config_manager 結構)
+          if (result.mcpServers) {
+            servers.value = Object.entries(result.mcpServers).map(([name, config]) => ({
+              name,
+              ...config
+            }))
+          } 
+          // 如果回傳的是陣列 (舊的結構或是已經處理過的)
+          else if (Array.isArray(result)) {
+            servers.value = result
+          }
+          // 直接回傳字典但沒有 mcpServers key (可能直接是 server map)
+          else if (typeof result === 'object') {
+            servers.value = Object.entries(result).map(([name, config]) => ({
+              name,
+              ...config
+            }))
+          }
         }
       } catch (error) {
         console.error('載入 Servers 失敗:', error)
-        alert('載入 Servers 失敗: ' + error.message)
+        Swal.fire({
+          icon: 'error',
+          title: '載入失敗',
+          text: '載入 Servers 失敗: ' + error.message
+        })
       } finally {
         loadingServers.value = false
       }
     }
 
     const toggleServer = async (serverName, enabled) => {
+      const loadingTimer = setTimeout(() => {
+        Swal.fire({
+          title: '狀態切換中...',
+          text: '正在更新伺服器狀態，請稍後...',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+        })
+      }, 3000)
+
       try {
         const response = await axios.post(
           `${API_URL}/api/mcp/servers/${serverName}/toggle`, 
           { enabled },
           { headers: { 'Content-Type': 'application/json' } }
         )
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
+
         if (response.data.success) {
           await loadServers()
         } else {
-          alert(`切換 Server 狀態失敗:\n${response.data.error || '未知錯誤'}`)
+          Swal.fire({
+            icon: 'error',
+            title: '切換失敗',
+            text: response.data.error || '未知錯誤'
+          })
           await loadServers() // 恢復原狀態
         }
       } catch (error) {
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
         console.error('切換 Server 狀態失敗:', error)
         const errorMsg = error.response?.data?.error || error.message
-        alert(`切換 Server 狀態失敗:\n${errorMsg}`)
+        Swal.fire({
+          icon: 'error',
+          title: '切換失敗',
+          text: errorMsg
+        })
         await loadServers() // 恢復原狀態
       }
     }
 
     const editServer = (server) => {
       editingServer.value = server
+      
+      // 判斷是否為線上工具 (command === 'npx')
+      const isNpmTool = server.command === 'npx'
+      const packageName = isNpmTool && server.args && server.args.length >= 2 
+        ? server.args[1]  // args: ['-y', 'package-name']
+        : ''
+      
       serverForm.value = {
         name: server.name,
         description: server.description || '',
-        command: server.command,
-        args: [...server.args],
-        env: { ...server.env },
+        source: isNpmTool ? 'npm' : 'local',
+        command: isNpmTool ? 'npx' : (server.command || (server.url ? 'http' : 'python')),
+        args: server.args ? [...server.args] : [''],
+        url: server.url || '',
+        env: { ...(server.env || server.headers || {}) },
         enabled: server.enabled
       }
     }
 
     const testServer = async (serverName) => {
+      testingServers[serverName] = true
+      const loadingTimer = setTimeout(() => {
+        Swal.fire({
+          title: '連線測試中...',
+          text: `正在與 Server ${serverName} 建立連線，請稍後...`,
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+        })
+      }, 3000)
+
       try {
         const response = await axios.post(
           `${API_URL}/api/mcp/servers/${serverName}/test`,
           {},
           { headers: { 'Content-Type': 'application/json' } }
         )
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
+
         if (response.data.success) {
-          alert(`Server ${serverName} 測試成功!\n${response.data.message || ''}`)
+          Swal.fire({
+            icon: 'success',
+            title: '測試成功',
+            text: `Server ${serverName} 連結正常!\n${response.data.message || ''}`
+          })
         } else {
-          alert(`Server ${serverName} 測試失敗:\n${response.data.error || '未知錯誤'}`)
+          Swal.fire({
+            icon: 'error',
+            title: '測試失敗',
+            text: response.data.error || '未知錯誤'
+          })
         }
       } catch (error) {
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
         const errorMsg = error.response?.data?.error || error.message
-        alert(`Server ${serverName} 測試失敗:\n${errorMsg}`)
+        Swal.fire({
+          icon: 'error',
+          title: '測試異常',
+          text: errorMsg
+        })
+      } finally {
+        testingServers[serverName] = false
       }
     }
 
     const deleteServer = async (serverName) => {
-      if (!confirm(`確定要刪除 Server "${serverName}" 嗎?`)) return
+      const result = await Swal.fire({
+        title: '確定要刪除嗎?',
+        text: `確定要刪除 Server "${serverName}" 嗎?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: '確定刪除',
+        cancelButtonText: '取消'
+      })
+      
+      if (!result.isConfirmed) return
       
       try {
         const response = await axios.delete(`${API_URL}/api/mcp/servers/${serverName}`)
@@ -413,7 +578,11 @@ export default {
         }
       } catch (error) {
         console.error('刪除 Server 失敗:', error)
-        alert('刪除 Server 失敗: ' + error.message)
+        Swal.fire({
+          icon: 'error',
+          title: '刪除失敗',
+          text: error.message
+        })
       }
     }
 
@@ -423,28 +592,68 @@ export default {
       serverForm.value = {
         name: '',
         description: '',
+        source: 'local',
         command: 'python',
         args: [''],
+        package: '',
         env: {},
         enabled: true
       }
     }
 
     const saveServer = async () => {
+      savingServer.value = true
+      const loadingTimer = setTimeout(() => {
+        Swal.fire({
+          title: '正在儲存...',
+          text: '正在更新伺服器配置，請稍後...',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+        })
+      }, 3000)
+
       try {
+        // 建立配置物件
+        const config = {
+          source: serverForm.value.source,
+          description: serverForm.value.description,
+          enabled: serverForm.value.enabled,
+        }
+        
+        // 根據來源類型新增對應欄位
+        if (serverForm.value.command === 'http') {
+            config.type = 'sse'
+            config.url = serverForm.value.url
+            config.headers = serverForm.value.env
+        } else {
+            config.command = serverForm.value.command
+            config.args = serverForm.value.args.filter(a => a.trim())
+            config.env = serverForm.value.env
+
+            if (serverForm.value.command === 'node' || serverForm.value.command === 'npx') {
+                config.type = 'nodejs'
+            } else if (serverForm.value.command === 'python' || serverForm.value.command === 'uvx') {
+                config.type = 'python'
+            }
+        }
+        
         if (editingServer.value) {
           // 更新
           const response = await axios.put(
             `${API_URL}/api/mcp/servers/${serverForm.value.name}`,
-            {
-              command: serverForm.value.command,
-              args: serverForm.value.args.filter(a => a.trim()),
-              env: serverForm.value.env,
-              description: serverForm.value.description,
-              enabled: serverForm.value.enabled
-            }
+            config
           )
+          clearTimeout(loadingTimer)
+          if (Swal.isVisible()) Swal.close()
+
           if (response.data.success) {
+            if (response.data.warning) {
+              Swal.fire({
+                icon: 'warning',
+                title: '更新成功 (有警告)',
+                text: response.data.warning
+              })
+            }
             await loadServers()
             closeServerDialog()
           }
@@ -452,22 +661,126 @@ export default {
           // 新增
           const response = await axios.post(`${API_URL}/api/mcp/servers`, {
             name: serverForm.value.name,
-            config: {
-              command: serverForm.value.command,
-              args: serverForm.value.args.filter(a => a.trim()),
-              env: serverForm.value.env,
-              description: serverForm.value.description,
-              enabled: serverForm.value.enabled
-            }
+            config: config
           })
+          clearTimeout(loadingTimer)
+          if (Swal.isVisible()) Swal.close()
+
           if (response.data.success) {
+            if (response.data.warning) {
+              Swal.fire({
+                icon: 'warning',
+                title: '儲存成功 (有警告)',
+                text: response.data.warning
+              })
+            }
             await loadServers()
             closeServerDialog()
           }
         }
       } catch (error) {
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
         console.error('儲存 Server 失敗:', error)
-        alert('儲存 Server 失敗: ' + error.message)
+        
+        // 即使失敗也嘗試重整列表,因為可能是「部分成功」(例如資料庫存入但後續初始化報錯)
+        await loadServers()
+        
+        Swal.fire({
+          icon: 'error',
+          title: '儲存失敗',
+          text: error.response?.data?.error || error.message
+        })
+      } finally {
+        savingServer.value = false
+      }
+    }
+
+    // 匯出配置
+    const exportConfig = () => {
+      window.open(`${API_URL}/api/mcp/export`, '_blank')
+    }
+    
+    // 觸發匯入
+    const triggerImport = () => {
+      fileInput.value.click()
+    }
+    
+    const handleImportFile = async (event) => {
+      const file = event.target.files[0]
+      if (!file) return
+      
+      try {
+        const reader = new FileReader()
+        reader.onload = async (e) => {
+          let loadingTimer
+          try {
+            const configData = JSON.parse(e.target.result)
+            
+            // 詢問使用者是否覆寫
+            const confirmResult = await Swal.fire({
+              title: '是否覆寫?',
+              text: '是否覆寫現有同名的 Server 配置?',
+              icon: 'question',
+              showCancelButton: true,
+              confirmButtonText: '是, 覆寫',
+              cancelButtonText: '否, 略過同名項目'
+            })
+            
+            const overwrite = confirmResult.isConfirmed
+            
+            loadingTimer = setTimeout(() => {
+              Swal.fire({
+                title: '正在匯入配置...',
+                text: '正在處理檔案內容並同步至 Server，請稍後...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+              })
+            }, 3000)
+
+            const response = await axios.post(
+              `${API_URL}/api/mcp/import`, 
+              configData,
+              { 
+                params: { overwrite },
+                headers: { 'Content-Type': 'application/json' } 
+              }
+            )
+            
+            clearTimeout(loadingTimer)
+            if (Swal.isVisible()) Swal.close()
+
+            if (response.data.success) {
+              const result = response.data.result
+              Swal.fire({
+                icon: 'success',
+                title: '匯入完成',
+                html: `成功: ${result.success}<br>失敗: ${result.failed}<br>略過: ${result.skipped}`
+              })
+              await loadServers()
+            }
+          } catch (error) {
+            if (loadingTimer) clearTimeout(loadingTimer)
+            if (Swal.isVisible()) Swal.close()
+            console.error('匯入失敗:', error)
+            Swal.fire({
+              icon: 'error',
+              title: '匯入失敗',
+              text: error.response?.data?.error || error.message
+            })
+          }
+        }
+        reader.readAsText(file)
+      } catch (error) {
+        console.error('讀取檔案失敗:', error)
+        Swal.fire({
+          icon: 'error',
+          title: '讀取失敗',
+          text: '讀取檔案失敗'
+        })
+      } finally {
+        // 清空 input 以便下次能選同個檔案
+        event.target.value = ''
       }
     }
 
@@ -496,6 +809,19 @@ export default {
         const value = serverForm.value.env[oldKey]
         delete serverForm.value.env[oldKey]
         serverForm.value.env[newKey] = value
+      }
+    }
+    
+    // 來源切換處理
+    const onSourceChange = () => {
+      // 切換來源時設定預設 command
+      if (serverForm.value.source === 'npm') {
+        serverForm.value.command = 'npx'
+        serverForm.value.args = ['-y', ''] // 預設帶上 -y
+      } else {
+        serverForm.value.command = 'python'
+        serverForm.value.args = ['']
+        serverForm.value.url = ''
       }
     }
 
@@ -554,33 +880,30 @@ export default {
       executing.value = true
       playgroundResult.value = null
 
+      const loadingTimer = setTimeout(() => {
+        Swal.fire({
+          title: '工具執行中...',
+          text: `正在執行 ${playgroundTool.value}，請稍後...`,
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+        })
+      }, 3000)
+
       try {
         const response = await axios.post(
           `${API_URL}/api/mcp/servers/${playgroundServer.value}/tools/${playgroundTool.value}/invoke`,
           { arguments: playgroundArguments.value }
         )
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
+
         playgroundResult.value = response.data
-
-        // 添加到歷史
-        executionHistory.value.unshift({
-          server: playgroundServer.value,
-          tool: playgroundTool.value,
-          arguments: { ...playgroundArguments.value },
-          result: response.data,
-          success: response.data.success,
-          time: new Date()
-        })
-
-        // 限制歷史記錄數量
-        if (executionHistory.value.length > 10) {
-          executionHistory.value.pop()
-        }
+        // ...
       } catch (error) {
+        clearTimeout(loadingTimer)
+        if (Swal.isVisible()) Swal.close()
         console.error('執行工具失敗:', error)
-        playgroundResult.value = {
-          success: false,
-          error: error.message
-        }
+        // ...
       } finally {
         executing.value = false
       }
@@ -620,12 +943,19 @@ export default {
       editingServer,
       serverForm,
       enabledServers,
+      fileInput,
+      exportConfig,
+      triggerImport,
+      handleImportFile,
       toggleServer,
       editServer,
       testServer,
+      testingServers,
+      savingServer,
       deleteServer,
       closeServerDialog,
       saveServer,
+      onSourceChange,
       addArg,
       removeArg,
       addEnv,
@@ -826,6 +1156,10 @@ export default {
   flex: 1;
 }
 
+.url-text {
+  word-break: break-all;
+}
+
 .server-actions {
   display: flex;
   gap: 0.5rem;
@@ -918,7 +1252,9 @@ export default {
 .history-item {
   padding: 0.75rem;
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  border-radius: 4px;
+  color: #c0392b;
+  font-family: monospace;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1274,5 +1610,14 @@ input:checked + .slider:before {
     padding: 0.75rem 1rem;
     font-size: 0.9rem;
   }
+}
+
+/* 表單提示文字 */
+.form-hint {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #666;
+  font-style: italic;
 }
 </style>

@@ -21,7 +21,7 @@ MCP_SERVER_URL = f"http://{MCP_SERVER_HOST}:{MCP_SERVER_PORT}"
 def list_servers():
     """列出所有 MCP Server"""
     try:
-        response = requests.get(f"{MCP_SERVER_URL}/mcp-servers", timeout=5)
+        response = requests.get(f"{MCP_SERVER_URL}/mcp-servers", timeout=10)
         if response.status_code == 200:
             return jsonify(response.json())
         else:
@@ -40,7 +40,7 @@ def list_servers():
 def get_server(server_name):
     """取得特定 MCP Server 資訊"""
     try:
-        response = requests.get(f"{MCP_SERVER_URL}/mcp-servers/{server_name}", timeout=5)
+        response = requests.get(f"{MCP_SERVER_URL}/mcp-servers/{server_name}", timeout=10)
         if response.status_code == 200:
             return jsonify(response.json())
         else:
@@ -60,7 +60,7 @@ def add_server():
     """新增 MCP Server"""
     try:
         data = request.get_json()
-        response = requests.post(f"{MCP_SERVER_URL}/mcp-servers", json=data, timeout=5)
+        response = requests.post(f"{MCP_SERVER_URL}/mcp-servers", json=data, timeout=60)
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({
@@ -74,7 +74,7 @@ def update_server(server_name):
     """更新 MCP Server 配置"""
     try:
         config = request.get_json()
-        response = requests.put(f"{MCP_SERVER_URL}/mcp-servers/{server_name}", json=config, timeout=5)
+        response = requests.put(f"{MCP_SERVER_URL}/mcp-servers/{server_name}", json=config, timeout=60)
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({
@@ -87,7 +87,7 @@ def update_server(server_name):
 def delete_server(server_name):
     """刪除 MCP Server"""
     try:
-        response = requests.delete(f"{MCP_SERVER_URL}/mcp-servers/{server_name}", timeout=5)
+        response = requests.delete(f"{MCP_SERVER_URL}/mcp-servers/{server_name}", timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({
@@ -101,7 +101,7 @@ def toggle_server(server_name):
     """啟用/停用 MCP Server"""
     try:
         data = request.get_json()
-        response = requests.post(f"{MCP_SERVER_URL}/mcp-servers/{server_name}/toggle", json=data, timeout=5)
+        response = requests.post(f"{MCP_SERVER_URL}/mcp-servers/{server_name}/toggle", json=data, timeout=30)
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({
@@ -115,7 +115,7 @@ def test_server(server_name):
     """測試 MCP Server 連線 (強化版: 偵測工具與檔案)"""
     try:
         # 調用 mcp-server 的強化版測試端點
-        response = requests.post(f"{MCP_SERVER_URL}/mcp-servers/{server_name}/test", timeout=10)
+        response = requests.post(f"{MCP_SERVER_URL}/mcp-servers/{server_name}/test", timeout=60)
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({
@@ -136,7 +136,7 @@ def get_server_tools(server_name):
         response = requests.get(
             f"{MCP_SERVER_URL}/tools", 
             params={"server_names": server_name},
-            timeout=5
+            timeout=30
         )
         if response.status_code == 200:
             return jsonify(response.json())
@@ -272,6 +272,52 @@ def invoke_tool():
             timeout=30
         )
         
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@mcp_bp.route('/export', methods=['GET'])
+def export_config():
+    """匯出 MCP Server 配置"""
+    try:
+        response = requests.get(f"{MCP_SERVER_URL}/api/mcp/export", timeout=10)
+        if response.status_code == 200:
+            from flask import Response
+            # 排除某些不適合直接轉發的 headers
+            excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+            headers = [(name, value) for (name, value) in response.headers.items()
+                       if name.lower() not in excluded_headers]
+            
+            return Response(response.content, response.status_code, headers)
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Failed to export config"
+            }), response.status_code
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@mcp_bp.route('/import', methods=['POST'])
+def import_config():
+    """匯入 MCP Server 配置"""
+    try:
+        data = request.get_json()
+        overwrite = request.args.get('overwrite', 'false')
+        
+        response = requests.post(
+            f"{MCP_SERVER_URL}/api/mcp/import", 
+            json=data, 
+            params={"overwrite": overwrite},
+            timeout=60
+        )
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({

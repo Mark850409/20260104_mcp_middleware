@@ -1,7 +1,9 @@
 Flask==3.0.0
 Flask-CORS==4.0.0
-httpx
-python-dotenv
 fastmcp
-uvicorn
+python-dotenv
 starlette
+uvicorn
+httpx
+httpx-sse
+pymysql
