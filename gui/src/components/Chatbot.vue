@@ -214,6 +214,15 @@
                         </option>
                       </select>
                     </div>
+                    <div class="form-group">
+                      <label>系統提示詞</label>
+                      <select v-model="selectedPromptId" class="popup-select">
+                        <option :value="null">無系統提示詞</option>
+                        <option v-for="prompt in availablePrompts" :key="prompt.id" :value="prompt.id">
+                          {{ prompt.name }} {{ prompt.is_default ? '(預設)' : '' }}
+                        </option>
+                      </select>
+                    </div>
                   </div>
                 </div>
                 <!-- Backdrop for closing -->
@@ -266,8 +275,10 @@ export default {
     // 模型設定
     const selectedProvider = ref('openai')
     const selectedModel = ref('gpt-4o')
+    const selectedPromptId = ref(null)
     const mcpEnabled = ref(false)
     const allModels = ref({})
+    const availablePrompts = ref([])
     const messagesContainer = ref(null)
     
     // 計算屬性
@@ -327,6 +338,24 @@ export default {
         }
       } catch (error) {
         console.error('載入 MCP servers 失敗:', error)
+      }
+    }
+
+    const loadPrompts = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/api/prompts`)
+        if (response.data.success) {
+          availablePrompts.value = response.data.prompts
+          // 如果沒有選中且有預設，則選中預設
+          if (!selectedPromptId.value) {
+            const defaultPrompt = availablePrompts.value.find(p => p.is_default)
+            if (defaultPrompt) {
+              selectedPromptId.value = defaultPrompt.id
+            }
+          }
+        }
+      } catch (error) {
+        console.error('載入提示詞失敗:', error)
       }
     }
     
@@ -398,7 +427,8 @@ export default {
           model_provider: selectedProvider.value,
           model_name: selectedModel.value,
           mcp_enabled: selectedMcpServers.value.length > 0,
-          mcp_servers: selectedMcpServers.value
+          mcp_servers: selectedMcpServers.value,
+          system_prompt_id: selectedPromptId.value
         })
         clearTimeout(loadingTimer)
         if (Swal.isVisible()) Swal.close()
@@ -439,6 +469,7 @@ export default {
           selectedProvider.value = conv.model_provider
           selectedModel.value = conv.model_name
           selectedMcpServers.value = conv.mcp_servers || []
+          selectedPromptId.value = conv.system_prompt_id || null
           
           // 如果是 LINE 對話,啟動自動刷新
           if (conv.source === 'line') {
@@ -582,7 +613,8 @@ export default {
         await axios.patch(`${API_URL}/api/chat/conversations/${currentConversationId.value}`, {
           model_provider: selectedProvider.value,
           model_name: selectedModel.value,
-          mcp_servers: selectedMcpServers.value
+          mcp_servers: selectedMcpServers.value,
+          system_prompt_id: selectedPromptId.value
         })
         
         // 更新本地對話列表中的資料
@@ -592,14 +624,15 @@ export default {
           conv.model_name = selectedModel.value
           conv.mcp_servers = selectedMcpServers.value
           conv.mcp_enabled = selectedMcpServers.value.length > 0
+          conv.system_prompt_id = selectedPromptId.value
         }
       } catch (error) {
         console.error('更新對話配置失敗:', error)
       }
     }
     
-    // 監看模型與 MCP 工具變更,自動同步
-    watch([selectedProvider, selectedModel, selectedMcpServers], () => {
+    // 監看模型與 MCP 工具、提示詞變更,自動同步
+    watch([selectedProvider, selectedModel, selectedMcpServers, selectedPromptId], () => {
       updateConversationConfig()
     }, { deep: true })
     
@@ -690,6 +723,7 @@ export default {
     onMounted(async () => {
       await loadModels()
       await loadMcpServers()
+      await loadPrompts()
       await loadConversations()
     })
     
@@ -729,7 +763,9 @@ export default {
       showMcpMenu,
       showModelMenu,
       currentConversationSource,
-      validSelectedMcpServers
+      validSelectedMcpServers,
+      availablePrompts,
+      selectedPromptId
     }
   }
 }
@@ -741,8 +777,7 @@ export default {
 .chatbot-container {
   display: flex;
   height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  background-attachment: fixed;
+  background: #f8fafc;
   font-family: 'Outfit', sans-serif;
   color: #1e293b;
   overflow: hidden;
@@ -766,16 +801,13 @@ export default {
 /* 側邊欄 */
 .sidebar {
   width: 320px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(255, 255, 255, 0.3);
+  background: white;
+  border-right: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  box-shadow: 4px 0 10px rgba(0, 0, 0, 0.02);
   z-index: 10;
+  flex-shrink: 0;
   position: relative;
 }
 
@@ -886,18 +918,16 @@ export default {
 }
 
 .conversations-list::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  background: transparent;
 }
 
 .conversations-list::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #667eea, #764ba2);
+  background: #e2e8f0;
   border-radius: 10px;
-  transition: background 0.3s;
 }
 
 .conversations-list::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #764ba2, #667eea);
+  background: #cbd5e1;
 }
 
 .conversation-item {
@@ -924,6 +954,7 @@ export default {
   padding: 2px;
   background: linear-gradient(135deg, transparent, transparent);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   opacity: 0;
@@ -996,29 +1027,22 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: white;
   position: relative;
   overflow: hidden;
-  border-radius: 24px 0 0 24px;
-  margin: 12px 12px 12px 0;
-  box-shadow: 
-    -4px 0 24px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  box-shadow: inset 4px 0 10px rgba(0, 0, 0, 0.02);
 }
 
 .chat-header {
-  padding: 1rem 2rem;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
+  padding: 0 2rem;
+  background: white;
   border-bottom: 1px solid #f1f5f9;
   display: flex;
   justify-content: space-between;
   align-items: center;
   z-index: 5;
-  height: 80px; 
-  flex-shrink: 0; /* 防止 Header 被壓縮 */
+  height: 70px; 
+  flex-shrink: 0;
 }
 
 .header-left {
@@ -1166,13 +1190,14 @@ export default {
 }
 
 .welcome-screen h1 {
-  font-size: 3.5rem;
-  margin-bottom: 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .messages-list {
@@ -1258,16 +1283,16 @@ export default {
 
 .message.assistant .message-text {
   border-bottom-left-radius: 4px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(102, 126, 234, 0.1);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s;
+  background: white;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .message.assistant .message-text:hover {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.04);
+  transform: translateY(-2px);
+  border-color: #e2e8f0;
 }
 
 /* 工具調用樣式 */

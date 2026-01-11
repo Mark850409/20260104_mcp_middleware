@@ -38,6 +38,7 @@ def create_conversation():
         model_name = data.get('model_name', 'gpt-4')
         mcp_enabled = data.get('mcp_enabled', False)
         mcp_servers = data.get('mcp_servers', [])  # 新增:支援多選 MCP servers
+        system_prompt_id = data.get('system_prompt_id', None)  # 新增:系統提示詞
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -46,9 +47,9 @@ def create_conversation():
         mcp_servers_json = json.dumps(mcp_servers) if mcp_servers else None
         
         cursor.execute("""
-            INSERT INTO conversations (title, model_provider, model_name, mcp_enabled, mcp_servers)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (title, model_provider, model_name, mcp_enabled, mcp_servers_json))
+            INSERT INTO conversations (title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (title, model_provider, model_name, mcp_enabled, mcp_servers_json, system_prompt_id))
         
         conversation_id = cursor.lastrowid
         conn.commit()
@@ -95,7 +96,7 @@ def list_conversations():
                  bot_mcp_servers = []
         
         cursor.execute("""
-            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, source, line_user_id, created_at, updated_at
+            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id, source, line_user_id, created_at, updated_at
             FROM conversations
             ORDER BY updated_at DESC
         """)
@@ -139,7 +140,7 @@ def get_conversation(conversation_id):
         
         # 取得對話資訊
         cursor.execute("""
-            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, source, line_user_id, created_at, updated_at
+            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id, source, line_user_id, created_at, updated_at
             FROM conversations
             WHERE id = %s
         """, (conversation_id,))
@@ -231,7 +232,7 @@ def send_message(conversation_id):
         
         # 取得對話設定
         cursor.execute("""
-            SELECT model_provider, model_name, mcp_enabled, mcp_servers
+            SELECT model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id
             FROM conversations
             WHERE id = %s
         """, (conversation_id,))
@@ -261,6 +262,17 @@ def send_message(conversation_id):
         
         history = cursor.fetchall()
         messages = [{"role": msg["role"], "content": msg["content"]} for msg in history]
+        
+        # 如果有系統提示詞，插入到訊息開頭
+        if conversation['system_prompt_id']:
+            cursor.execute("""
+                SELECT content FROM system_prompts WHERE id = %s
+            """, (conversation['system_prompt_id'],))
+            prompt_row = cursor.fetchone()
+            if prompt_row:
+                system_prompt = prompt_row['content']
+                messages.insert(0, {"role": "system", "content": system_prompt})
+                print(f"[SYSTEM PROMPT] 使用系統提示詞: {system_prompt[:50]}...")
         
         # 準備 AI Client
         ai_client = AIClientFactory.create_client(
@@ -452,6 +464,10 @@ def update_conversation(conversation_id):
             # 同步更新 mcp_enabled 狀態
             update_parts.append("mcp_enabled = %s")
             params.append(len(mcp_servers) > 0)
+        
+        if 'system_prompt_id' in data:
+            update_parts.append("system_prompt_id = %s")
+            params.append(data['system_prompt_id'])
             
         if not update_parts:
             return jsonify({

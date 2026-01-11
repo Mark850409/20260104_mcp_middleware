@@ -24,6 +24,12 @@
         >
           📱 LINE BOT
         </button>
+        <button
+          :class="['nav-tab', { active: currentView === 'prompts' }]"
+          @click="currentView = 'prompts'"
+        >
+          📝 提示詞管理
+        </button>
       </div>
     </nav>
 
@@ -43,6 +49,11 @@
       <div v-if="currentView === 'linebot'" class="view-container">
         <LineBotManagement />
       </div>
+
+      <!-- 提示詞管理頁面 -->
+      <div v-if="currentView === 'prompts'" class="view-container">
+        <PromptManagement />
+      </div>
     </div>
   </div>
 </template>
@@ -52,13 +63,15 @@ import { ref } from 'vue'
 import MCPManagement from './components/MCPManagement.vue'
 import Chatbot from './components/Chatbot.vue'
 import LineBotManagement from './components/LineBotManagement.vue'
+import PromptManagement from './components/PromptManagement.vue'
 
 export default {
   name: 'App',
   components: {
     MCPManagement,
     Chatbot,
-    LineBotManagement
+    LineBotManagement,
+    PromptManagement
   },
   setup() {
     const currentView = ref('mcp')
@@ -79,8 +92,9 @@ export default {
 
 #mcp-platform {
   min-height: 100vh;
-  background: #f5f5f5;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f8fafc;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1e293b;
 }
 
 .navbar {
@@ -94,7 +108,12 @@ export default {
 
 .nav-brand h1 {
   font-size: 1.5rem;
-  color: #667eea;
+  font-weight: 800;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
 }
 
 .nav-tabs {

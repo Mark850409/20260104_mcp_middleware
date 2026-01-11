@@ -33,7 +33,7 @@ echo "開始初始化數據庫..."
 echo "============================================================"
 
 echo ""
-echo "[1/3] 建立基礎資料表 (conversations, messages)..."
+echo "[1/4] 建立基礎資料表 (conversations, messages)..."
 if python init_db.py; then
   echo "✓ 基礎資料表初始化完成"
 else
@@ -41,7 +41,7 @@ else
 fi
 
 echo ""
-echo "[2/3] 建立 MCP Servers 資料表..."
+echo "[2/4] 建立 MCP Servers 資料表..."
 if python create_mcp_servers_table.py; then
   echo "✓ MCP Servers 資料表初始化完成"
 else
@@ -49,11 +49,19 @@ else
 fi
 
 echo ""
-echo "[3/3] 建立 LINE Bot 相關資料表..."
+echo "[3/4] 建立 LINE Bot 相關資料表..."
 if python init_line_db.py; then
   echo "✓ LINE Bot 資料表初始化完成"
 else
   echo "⚠ init_line_db.py 執行失敗或表已存在"
+fi
+
+echo ""
+echo "[4/4] 建立系統提示詞資料表..."
+if python init_prompts_db.py; then
+  echo "✓ 系統提示詞資料表初始化完成"
+else
+  echo "⚠ init_prompts_db.py 執行失敗或表已存在"
 fi
 
 echo ""
