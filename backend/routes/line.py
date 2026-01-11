@@ -32,6 +32,38 @@ def get_db_connection():
     return pymysql.connect(**DB_CONFIG)
 
 
+def get_line_credentials(bot_config: dict = None) -> tuple:
+    """
+    取得 LINE Bot 認證資訊
+    優先使用數據庫配置，如果為空則使用環境變數
+    
+    Args:
+        bot_config: LINE Bot 配置字典（可選）
+        
+    Returns:
+        (channel_access_token, channel_secret) 元組
+    """
+    channel_access_token = ''
+    channel_secret = ''
+    
+    if bot_config:
+        channel_access_token = bot_config.get('channel_access_token', '').strip()
+        channel_secret = bot_config.get('channel_secret', '').strip()
+    
+    # 如果數據庫中的 Token 為空，使用環境變數
+    if not channel_access_token:
+        channel_access_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN', '').strip()
+        if channel_access_token:
+            print(f"[LINE BOT] 使用環境變數的 Channel Access Token")
+    
+    if not channel_secret:
+        channel_secret = os.getenv('LINE_CHANNEL_SECRET', '').strip()
+        if channel_secret:
+            print(f"[LINE BOT] 使用環境變數的 Channel Secret")
+    
+    return channel_access_token, channel_secret
+
+
 @line_bp.route('/webhook', methods=['POST'])
 def webhook():
     """
@@ -132,11 +164,15 @@ def handle_message_event(event: dict, body: str, signature: str):
             print("找不到啟用的 LINE BOT 設定")
             return
         
+        # 取得認證資訊（優先數據庫，後備環境變數）
+        channel_access_token, channel_secret = get_line_credentials(bot_config)
+        
+        if not channel_access_token or not channel_secret:
+            print("❌ LINE Bot Token 或 Secret 未配置")
+            return
+        
         # 驗證簽章
-        line_client = create_line_client(
-            bot_config['channel_access_token'],
-            bot_config['channel_secret']
-        )
+        line_client = create_line_client(channel_access_token, channel_secret)
         
         if not line_client.verify_signature(body, signature):
             print("簽章驗證失敗")
@@ -213,11 +249,10 @@ def get_or_create_line_user(user_id: str) -> dict:
         # 嘗試從 LINE API 取得使用者資料
         bot_config = get_active_line_bot_config()
         if bot_config:
-            line_client = create_line_client(
-                bot_config['channel_access_token'],
-                bot_config['channel_secret']
-            )
-            profile = line_client.get_profile(user_id)
+            channel_access_token, channel_secret = get_line_credentials(bot_config)
+            if channel_access_token and channel_secret:
+                line_client = create_line_client(channel_access_token, channel_secret)
+                profile = line_client.get_profile(user_id)
             
             if profile:
                 cursor.execute("""
@@ -958,12 +993,20 @@ def send_message_to_line(conversation_id):
                 "error": "找不到啟用的 LINE BOT 設定"
             }), 404
         
+        # 取得認證資訊（優先數據庫，後備環境變數）
+        channel_access_token, channel_secret = get_line_credentials(bot_config)
+        
+        if not channel_access_token or not channel_secret:
+            cursor.close()
+            conn.close()
+            return jsonify({
+                "success": False,
+                "error": "LINE Bot Token 或 Secret 未配置"
+            }), 400
+        
         # 2a. 先推送使用者訊息到 LINE (讓 LINE 對話顯示使用者的提問)
         try:
-            line_client = create_line_client(
-                bot_config['channel_access_token'],
-                bot_config['channel_secret']
-            )
+            line_client = create_line_client(channel_access_token, channel_secret)
             print(f"[WEB->LINE] 推送使用者訊息到 LINE: {line_user_id}")
             line_client.send_messages(
                 line_user_id,

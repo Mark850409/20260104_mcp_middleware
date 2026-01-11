@@ -16,8 +16,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 複製應用程式碼
 COPY . .
 
+# 複製並設置 entrypoint 腳本權限
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
 # 暴露 Flask API 端口
 EXPOSE 5000
 
-# 啟動 Flask 應用
-CMD ["python", "app.py"]
+# 使用 entrypoint 腳本啟動
+ENTRYPOINT ["/docker-entrypoint.sh"]

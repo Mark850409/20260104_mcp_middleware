@@ -120,6 +120,7 @@ def migrate_line_tables():
                 ADD COLUMN line_message_id VARCHAR(255) AFTER tool_calls,
                 ADD COLUMN sync_status ENUM('pending', 'synced', 'failed') DEFAULT 'synced' AFTER line_message_id,
                 ADD COLUMN message_type ENUM('text', 'image', 'video', 'audio', 'file') DEFAULT 'text' AFTER sync_status,
+                ADD COLUMN tool_call_id VARCHAR(255) AFTER message_type,
                 ADD INDEX idx_line_message_id (line_message_id),
                 ADD INDEX idx_sync_status (sync_status)
             """)

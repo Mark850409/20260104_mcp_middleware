@@ -11,7 +11,7 @@ services:
       MYSQL_USER: mcp_user
       MYSQL_PASSWORD: mcp_password
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - db_data:/var/lib/mysql
     networks:
@@ -111,7 +111,7 @@ services:
       dockerfile: Dockerfile
     container_name: mcp-gui
     ports:
-      - "8080:8080"
+      - "8082:8080"
     networks:
       - mcp-network
     environment:

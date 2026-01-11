@@ -23,11 +23,18 @@ class LineClient:
             channel_access_token: LINE Channel Access Token
             channel_secret: LINE Channel Secret
         """
-        self.channel_access_token = channel_access_token
-        self.channel_secret = channel_secret
+        # 移除 Token 前後的空格
+        self.channel_access_token = channel_access_token.strip() if channel_access_token else ""
+        self.channel_secret = channel_secret.strip() if channel_secret else ""
+        
+        # 調試日誌
+        print(f"[LINE Client] Token 長度: {len(self.channel_access_token)}")
+        print(f"[LINE Client] Token 前10字: {self.channel_access_token[:10] if len(self.channel_access_token) >= 10 else 'TOO_SHORT'}")
+        print(f"[LINE Client] Secret 長度: {len(self.channel_secret)}")
+        
         self.headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {channel_access_token}"
+            "Authorization": f"Bearer {self.channel_access_token}"
         }
     
     def verify_signature(self, body: str, signature: str) -> bool:
@@ -109,16 +116,31 @@ class LineClient:
         }
         
         try:
+            print(f"[LINE API] 發送訊息到: {user_id}")
+            print(f"[LINE API] 訊息數量: {len(messages)}")
+            print(f"[LINE API] URL: {url}")
             response = requests.post(url, headers=self.headers, json=payload, timeout=10)
+            
+            # 記錄響應狀態
+            print(f"[LINE API] 響應狀態碼: {response.status_code}")
+            
+            # 如果失敗，記錄詳細錯誤
+            if response.status_code != 200:
+                print(f"[LINE API] 錯誤響應: {response.text}")
+                print(f"[LINE API] 請求 Headers: {self.headers}")
+                print(f"[LINE API] 請求 Payload: {json.dumps(payload, ensure_ascii=False)}")
+            
             response.raise_for_status()
             return {
                 "success": True,
                 "message": "訊息發送成功"
             }
         except requests.exceptions.RequestException as e:
+            error_msg = str(e)
+            print(f"[LINE API] 發送失敗: {error_msg}")
             return {
                 "success": False,
-                "error": str(e)
+                "error": error_msg
             }
     
     def reply_message(self, reply_token: str, messages: List[Dict[str, Any]]) -> Dict[str, Any]:
