@@ -56,7 +56,12 @@
     <!-- 檔案管理區域 (選中知識庫後顯示) -->
     <div v-if="selectedKB" class="file-management mt-8">
       <div class="header">
-        <h3>📁 檔案管理: {{ selectedKB.name }}</h3>
+        <div class="header-left">
+          <h3>📁 檔案管理: {{ selectedKB.name }}</h3>
+          <button class="btn-config" @click="showConfigModal = true" title="配置向量化參數">
+            ⚙️ 向量化配置
+          </button>
+        </div>
         <div class="file-ops">
           <input 
             type="file" 
@@ -189,11 +194,149 @@
       </div>
     </div>
   </div>
+
+  <!-- 向量化配置 Modal -->
+  <div v-if="showConfigModal" class="modal-overlay" @click.self="showConfigModal = false">
+    <div class="modal config-modal">
+      <div class="modal-header">
+        <h2>⚙️ 向量化配置</h2>
+        <button class="modal-close" @click="showConfigModal = false">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="config-section">
+          <h3>📝 切分策略</h3>
+          <div class="form-group">
+            <label>切分方法</label>
+            <select v-model="kbConfig.chunk_strategy" class="form-input">
+              <option value="character">字符切分 (Character Split)</option>
+              <option value="token">Token 切分 (Token Split)</option>
+              <option value="semantic">語義切分 (Semantic Split)</option>
+              <option value="recursive">遞歸切分 (Recursive Split)</option>
+            </select>
+            <p class="help-text">{{ getStrategyDescription(kbConfig.chunk_strategy) }}</p>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Chunk 大小: {{ kbConfig.chunk_size }}</label>
+              <input 
+                type="range" 
+                v-model.number="kbConfig.chunk_size" 
+                min="100" 
+                max="2000" 
+                step="50"
+                class="form-range"
+              />
+              <p class="help-text">建議: 500-1000 字元/tokens</p>
+            </div>
+
+            <div class="form-group">
+              <label>重疊大小: {{ kbConfig.chunk_overlap }}</label>
+              <input 
+                type="range" 
+                v-model.number="kbConfig.chunk_overlap" 
+                min="0" 
+                max="500" 
+                step="10"
+                class="form-range"
+              />
+              <p class="help-text">建議: chunk_size 的 10-20%</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <h3>🤖 Embedding 配置</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>提供者</label>
+              <select v-model="kbConfig.embedding_provider" class="form-input">
+                <option value="openai">OpenAI</option>
+                <option value="google">Google Gemini</option>
+                <option value="local">本地模型 (SentenceTransformers)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>模型</label>
+              <select v-model="kbConfig.embedding_model" class="form-input">
+                <option v-if="kbConfig.embedding_provider === 'openai'" value="text-embedding-3-small">text-embedding-3-small (1536維)</option>
+                <option v-if="kbConfig.embedding_provider === 'openai'" value="text-embedding-3-large">text-embedding-3-large (3072維)</option>
+                <option v-if="kbConfig.embedding_provider === 'google'" value="text-embedding-004">text-embedding-004 (768維)</option>
+                <option v-if="kbConfig.embedding_provider === 'local'" value="paraphrase-multilingual-MiniLM-L12-v2">Multi-MiniLM (384維, 推薦)</option>
+                <option v-if="kbConfig.embedding_provider === 'local'" value="all-MiniLM-L6-v2">all-MiniLM-L6-v2 (384維)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <h3>⚡ 索引配置</h3>
+          <div class="form-group">
+            <label>索引類型</label>
+            <select v-model="kbConfig.index_type" class="form-input">
+              <option value="flat">Flat (精確搜尋, 適合小數據)</option>
+              <option value="ivf">IVF (倒排索引, 適合中大數據)</option>
+              <option value="hnsw">HNSW (圖索引, 適合大規模檢索)</option>
+            </select>
+            <p class="help-text">{{ getIndexDescription(kbConfig.index_type) }}</p>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <h3>🔍 檢索配置</h3>
+          <div class="form-group">
+            <label>返回數量 (Top K): {{ kbConfig.retrieval_top_k }}</label>
+            <input 
+              type="range" 
+              v-model.number="kbConfig.retrieval_top_k" 
+              min="1" 
+              max="15" 
+              step="1"
+              class="form-range"
+            />
+            <p class="help-text">檢索時返回最相關的 K 個結果</p>
+          </div>
+        </div>
+
+        <div class="config-preview">
+          <h4>📊 配置預覽</h4>
+          <div class="preview-grid">
+            <div class="preview-item">
+              <span class="preview-label">切分策略:</span>
+              <span class="preview-value">{{ getStrategyName(kbConfig.chunk_strategy) }}</span>
+            </div>
+            <div class="preview-item">
+              <span class="preview-label">Chunk 大小:</span>
+              <span class="preview-value">{{ kbConfig.chunk_size }}</span>
+            </div>
+            <div class="preview-item">
+              <span class="preview-label">重疊大小:</span>
+              <span class="preview-value">{{ kbConfig.chunk_overlap }}</span>
+            </div>
+            <div class="preview-item">
+              <span class="preview-label">Embedding:</span>
+              <span class="preview-value">{{ kbConfig.embedding_model }}</span>
+            </div>
+            <div class="preview-item">
+              <span class="preview-label">Top K:</span>
+              <span class="preview-value">{{ kbConfig.retrieval_top_k }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" @click="showConfigModal = false">取消</button>
+        <button class="btn-primary" @click="saveConfig">儲存配置</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import Swal from 'sweetalert2'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
@@ -206,6 +349,7 @@ export default {
     const selectedFiles = ref([])
     const showCreateModal = ref(false)
     const showEditModal = ref(false)
+    const showConfigModal = ref(false)
     const uploading = ref(false)
     const processing = ref(false)
     const newKB = ref({ name: '', description: '' })
@@ -213,26 +357,54 @@ export default {
     const isDragging = ref(false)
     const uploadQueue = ref([])
     const uploadedCount = ref(0)
+    const kbConfig = ref({
+      chunk_strategy: 'character',
+      chunk_size: 500,
+      chunk_overlap: 50,
+      embedding_provider: 'openai',
+      embedding_model: 'text-embedding-3-small',
+      index_type: 'flat',
+      retrieval_top_k: 3
+    })
 
     const fetchKBs = async () => {
       try {
         const res = await axios.get(`${API_URL}/api/rag/kb`)
         if (res.data.success) kbs.value = res.data.data
       } catch (err) {
-        alert('取得知識庫失敗: ' + err.message)
+        Swal.fire({
+          icon: 'error',
+          title: '取得失敗',
+          text: '取得知識庫失敗: ' + err.message,
+          confirmButtonText: '確定'
+        })
       }
     }
 
     const createKB = async () => {
+      if (!newKB.value.name) return
       try {
         const res = await axios.post(`${API_URL}/api/rag/kb`, newKB.value)
         if (res.data.success) {
-          fetchKBs()
           showCreateModal.value = false
           newKB.value = { name: '', description: '' }
+          fetchKBs()
+          Swal.fire({
+            icon: 'success',
+            title: '建立成功',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
+          })
         }
       } catch (err) {
-        alert('建立失敗: ' + err.message)
+        Swal.fire({
+          icon: 'error',
+          title: '建立失敗',
+          text: err.message
+        })
       }
     }
 
@@ -248,19 +420,41 @@ export default {
           description: editKBData.value.description
         })
         if (res.data.success) {
-          fetchKBs()
           showEditModal.value = false
-          if (selectedKB.value && selectedKB.value.id === editKBData.value.id) {
-            selectedKB.value = { ...selectedKB.value, ...editKBData.value }
-          }
+          fetchKBs()
+          Swal.fire({
+            icon: 'success',
+            title: '更新成功',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000
+          })
         }
       } catch (err) {
-        alert('更新失敗: ' + err.message)
+        Swal.fire({
+          icon: 'error',
+          title: '更新失敗',
+          text: err.message
+        })
       }
     }
 
     const deleteKB = async (id) => {
-      if (!confirm('確定要刪除此知識庫嗎？此操作無法復原。')) return
+      const result = await Swal.fire({
+        title: '確定要刪除嗎？',
+        text: '此操作將永久刪除知識庫及其所有關聯檔案！',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '是的，刪除它',
+        cancelButtonText: '取消',
+        reverseButtons: true
+      })
+
+      if (!result.isConfirmed) return
+
       try {
         const res = await axios.delete(`${API_URL}/api/rag/kb/${id}`)
         if (res.data.success) {
@@ -268,27 +462,87 @@ export default {
           if (selectedKB.value && selectedKB.value.id === id) {
             selectedKB.value = null
           }
+          Swal.fire({
+            icon: 'success',
+            title: '已刪除',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000
+          })
         }
       } catch (err) {
-        alert('刪除失敗: ' + err.message)
+        Swal.fire({
+          icon: 'error',
+          title: '刪除失敗',
+          text: err.message
+        })
       }
     }
 
-    const selectKB = (kb) => {
+    const selectKB = async (kb) => {
       selectedKB.value = kb
-      // 這裡假設我們有一個 API 可以取得所有檔案或是該 KB 的檔案
-      // 為了簡化，我們先拿取所有檔案 (之後可優化)
+      // 載入知識庫配置
+      await loadKBConfig(kb.id)
+      // 載入檔案列表
       fetchFiles()
     }
 
-    const fetchFiles = async () => {
-      // 這裡需要後端提供 list files API，目前 rag.py 沒寫，我們先補一個或直接處理
-      // 假設後端已經有這個端點
+    const loadKBConfig = async (kbId) => {
       try {
-        const res = await axios.get(`${API_URL}/api/rag/files`)
+        const res = await axios.get(`${API_URL}/api/rag/kb/${kbId}/config`)
+        if (res.data.success && res.data.data) {
+          kbConfig.value = {
+            chunk_strategy: res.data.data.chunk_strategy || 'character',
+            chunk_size: res.data.data.chunk_size || 500,
+            chunk_overlap: res.data.data.chunk_overlap || 50,
+            embedding_provider: res.data.data.embedding_provider || 'openai',
+            embedding_model: res.data.data.embedding_model || 'text-embedding-3-small',
+            index_type: res.data.data.index_type || 'flat',
+            retrieval_top_k: res.data.data.retrieval_top_k || 3
+          }
+        }
+      } catch (err) {
+        console.error('載入配置失敗:', err)
+        // 使用預設配置
+      }
+    }
+
+    const saveConfig = async () => {
+      if (!selectedKB.value) return
+      
+      try {
+        const res = await axios.put(
+          `${API_URL}/api/rag/kb/${selectedKB.value.id}/config`,
+          kbConfig.value
+        )
+        
+        if (res.data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: '配置已儲存',
+            text: '請重新處理檔案以套用新配置。',
+            confirmButtonText: '確定',
+            confirmButtonColor: '#6366f1'
+          })
+          showConfigModal.value = false
+        }
+      } catch (err) {
+        Swal.fire({
+          icon: 'error',
+          title: '儲存失敗',
+          text: err.message
+        })
+      }
+    }
+
+    const fetchFiles = async () => {
+      if (!selectedKB.value) return
+      try {
+        const res = await axios.get(`${API_URL}/api/rag/kb/${selectedKB.value.id}/files`)
         if (res.data.success) files.value = res.data.data
       } catch (err) {
-        console.error('取得檔案失敗', err)
+        console.error('取得檔案列表失敗:', err)
       }
     }
 
@@ -312,7 +566,11 @@ export default {
 
     const uploadFiles = async (fileArray) => {
       if (!selectedKB.value) {
-        alert('請先選擇知識庫')
+        Swal.fire({
+          icon: 'info',
+          title: '提示',
+          text: '請先選擇知識庫'
+        })
         return
       }
 
@@ -324,12 +582,20 @@ export default {
       })
 
       if (validFiles.length === 0) {
-        alert('沒有支援的檔案格式')
+        Swal.fire({
+          icon: 'warning',
+          title: '不支援的格式',
+          text: '請選擇 PDF, DOCX, TXT 或 MD 檔案'
+        })
         return
       }
 
       if (validFiles.length < fileArray.length) {
-        alert(`已過濾 ${fileArray.length - validFiles.length} 個不支援的檔案`)
+        Swal.fire({
+          icon: 'info',
+          title: '檔案過濾',
+          text: `已過濾 ${fileArray.length - validFiles.length} 個不支援的檔案`
+        })
       }
 
       // 初始化上傳隊列
@@ -384,34 +650,93 @@ export default {
 
     const processFiles = async () => {
       if (!selectedKB.value) return
+      if (selectedFiles.value.length === 0) {
+        Swal.fire({
+          icon: 'info',
+          title: '提醒',
+          text: '請先選擇要處理的檔案',
+          confirmButtonColor: '#6366f1'
+        })
+        return
+      }
+      
       processing.value = true
       try {
         const res = await axios.post(`${API_URL}/api/rag/kb/${selectedKB.value.id}/process`, {
           file_ids: selectedFiles.value
         })
+        
         if (res.data.success) {
-          alert('處理完成')
+          const { chunks_count, config } = res.data
+          const strategyName = getStrategyName(config.strategy)
+          
+          Swal.fire({
+            icon: 'success',
+            title: '向量化處理完成',
+            html: `
+              <div style="text-align: left; padding: 10px; background: #f8fafc; border-radius: 8px;">
+                <p>📊 <b>處理結果：</b></p>
+                <ul style="list-style: none; padding-left: 0;">
+                  <li style="margin-bottom: 5px;">📍 產生區塊：<span style="color: #6366f1; font-weight: bold;">${chunks_count}</span> 個</li>
+                  <li style="margin-bottom: 5px;">🧩 切分策略：<span style="color: #6366f1; font-weight: bold;">${strategyName}</span></li>
+                  <li>📏 Chunk 大小：<span style="color: #6366f1; font-weight: bold;">${config.chunk_size}</span></li>
+                </ul>
+                <p style="margin-top: 10px; font-size: 0.9em; color: #64748b;">索引已建立並可供檢索。</p>
+              </div>
+            `,
+            confirmButtonText: '確定',
+            confirmButtonColor: '#6366f1'
+          })
+          
           fetchFiles()
           selectedFiles.value = []
         }
       } catch (err) {
-        alert('處理失敗: ' + err.message)
+        Swal.fire({
+          icon: 'error',
+          title: '處理失敗',
+          text: err.message
+        })
       } finally {
         processing.value = false
       }
     }
 
     const deleteSingleFile = (fileId) => {
-      if (confirm('確定要刪除此檔案嗎？')) {
-        deleteFiles([fileId])
-      }
+      Swal.fire({
+        title: '確定要刪除嗎？',
+        text: '刪除後將無法從知識庫中檢索此檔案內容！',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '確定刪除',
+        cancelButtonText: '取消',
+        reverseButtons: true
+      }).then((result) => {
+        if (result.isConfirmed) {
+          deleteFiles([fileId])
+        }
+      })
     }
 
     const batchDeleteFiles = () => {
       if (selectedFiles.value.length === 0) return
-      if (confirm(`確定要刪除選中的 ${selectedFiles.value.length} 個檔案嗎？`)) {
-        deleteFiles(selectedFiles.value)
-      }
+      Swal.fire({
+        title: '確定要批次刪除嗎？',
+        text: `確定要刪除選中的 ${selectedFiles.value.length} 個檔案嗎？`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '確定刪除',
+        cancelButtonText: '取消',
+        reverseButtons: true
+      }).then((result) => {
+        if (result.isConfirmed) {
+          deleteFiles(selectedFiles.value)
+        }
+      })
     }
 
     const deleteFiles = async (fileIds) => {
@@ -420,9 +745,21 @@ export default {
         if (res.data.success) {
           fetchFiles()
           selectedFiles.value = selectedFiles.value.filter(id => !fileIds.includes(id))
+          Swal.fire({
+            icon: 'success',
+            title: '檔案已刪除',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 2000
+          })
         }
       } catch (err) {
-        alert('刪除檔案失敗: ' + err.message)
+        Swal.fire({
+          icon: 'error',
+          title: '刪除失敗',
+          text: err.message
+        })
       }
     }
 
@@ -457,13 +794,44 @@ export default {
       }
     }
 
+    const getStrategyName = (strategy) => {
+      const names = {
+        'character': '字符切分',
+        'token': 'Token 切分',
+        'semantic': '語義切分',
+        'recursive': '遞歸切分'
+      }
+      return names[strategy] || strategy
+    }
+
+    const getStrategyDescription = (strategy) => {
+      const descriptions = {
+        'character': '簡單快速的字符切分,適用於一般文件',
+        'token': '基於 Token 的切分,精確控制長度,適用於技術文件',
+        'semantic': '基於句子的語義切分,保持語義完整性,適用於對話和文章',
+        'recursive': '遞歸切分,智能處理不同層級,適用於結構化文件'
+      }
+      return descriptions[strategy] || ''
+    }
+
+    const getIndexDescription = (type) => {
+      const descriptions = {
+        'flat': '暴力搜尋,最精確但速度隨數據量增加而下降,適用於小於 1 萬條的數據',
+        'ivf': '倒排索引,透過聚類加速搜尋,適合中大型數據集',
+        'hnsw': '圖索引,極速檢索且精確度高,是目前大規模檢索的業界標準'
+      }
+      return descriptions[type] || ''
+    }
+
     onMounted(fetchKBs)
 
     return {
-      kbs, files, selectedKB, selectedFiles, showCreateModal, showEditModal, uploading, processing, newKB, editKBData,
-      isDragging, uploadQueue, uploadedCount,
-      fetchKBs, createKB, openEditModal, updateKB, deleteKB, selectKB, handleFileUpload, handleDrop, processFiles, batchDeleteFiles, deleteSingleFile,
-      formatDate, formatSize, formatStatus, toggleAllFiles
+      kbs, files, selectedKB, selectedFiles, showCreateModal, showEditModal, showConfigModal, uploading, processing, newKB, editKBData,
+      isDragging, uploadQueue, uploadedCount, kbConfig,
+      fetchKBs, createKB, openEditModal, updateKB, deleteKB, selectKB, loadKBConfig, saveConfig,
+      handleFileUpload, handleDrop, processFiles, batchDeleteFiles, deleteSingleFile,
+      formatDate, formatSize, formatStatus, toggleAllFiles,
+      getStrategyName, getStrategyDescription, getIndexDescription
     }
   }
 }
@@ -491,12 +859,20 @@ export default {
 
 .kb-card {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 1.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid #f1f5f9;
+}
+
+.kb-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border-color: #6366f1;
 }
 
 .kb-info h3 {
@@ -583,10 +959,12 @@ th { background: #f8fafc; font-weight: 600; color: #475569; }
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 9999;
 }
 
 .modal {
@@ -831,11 +1209,241 @@ th { background: #f8fafc; font-weight: 600; color: #475569; }
   }
 }
 
-.select-kb-hint p {
-  color: #92400e;
-  font-size: 1.2rem;
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.btn-process {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  padding: 0.6rem 1.25rem;
+  border-radius: 10px;
+  border: none;
   font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-process:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 15px rgba(16, 185, 129, 0.35);
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+.btn-process:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background: #9ca3af;
+  box-shadow: none;
+}
+
+.btn-config {
+  background: white;
+  border: 1px solid #e2e8f0;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  color: #64748b;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.btn-config:hover {
+  border-color: #6366f1;
+  color: #6366f1;
+  box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.1);
+}
+
+/* Config Modal Specifics */
+.config-modal {
+  max-width: 800px;
+  width: 95%;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: white;
+  z-index: 10000;
+  padding: 0; /* Header handles padding */
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #f1f5f9;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 10;
+}
+
+.modal-header h2 {
+  font-size: 1.5rem;
+  color: #1e293b;
   margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.5rem;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.modal-close:hover {
+  color: #1e293b;
+}
+
+.modal-body {
+  padding: 2rem;
+}
+
+.config-section {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.config-section:last-of-type {
+  border-bottom: none;
+}
+
+.config-section h3 {
+  font-size: 1.1rem;
+  color: #1e293b;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background-color: white;
+  font-size: 1rem;
+  color: #1e293b;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1.25rem;
+}
+
+.form-input:hover {
+  border-color: #cbd5e1;
+  background-color: #f8fafc;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-range {
+  width: 100%;
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  outline: none;
+  appearance: none;
+  margin: 1.25rem 0;
+  cursor: pointer;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #6366f1;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.form-range::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.help-text {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+  line-height: 1.4;
+}
+
+.config-preview {
+  background: #f8fafc;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-top: 1rem;
+}
+
+.config-preview h4 {
+  font-size: 0.95rem;
+  color: #475569;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.preview-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #edf2f7;
+}
+
+.preview-label {
+  font-size: 0.85rem;
+  color: #718096;
+}
+
+.preview-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* 拖曳上傳區域 */

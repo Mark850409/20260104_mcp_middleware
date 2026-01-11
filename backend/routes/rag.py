@@ -89,6 +89,27 @@ def delete_knowledge_base(kb_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@rag_bp.route('/api/rag/kb/<int:kb_id>/files', methods=['GET'])
+def list_kb_files(kb_id):
+    """取得特定知識庫的檔案清單"""
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            # 透過連結表 kb_files 取得該知識庫的檔案
+            sql = """
+                SELECT f.* 
+                FROM files f
+                JOIN kb_files kf ON f.id = kf.file_id
+                WHERE kf.kb_id = %s
+                ORDER BY f.created_at DESC
+            """
+            cursor.execute(sql, (kb_id,))
+            files = cursor.fetchall()
+        conn.close()
+        return jsonify({"success": True, "data": files})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @rag_bp.route('/api/rag/files', methods=['GET'])
 def list_files():
     """取得所有檔案清單"""
@@ -168,12 +189,20 @@ def upload_file():
         file.save(file_path)
         file_size = os.path.getsize(file_path)
         
+        # 獲取 kb_id (如果前端有傳)
+        kb_id = request.form.get('kb_id')
+        
         conn = get_db_connection()
         with conn.cursor() as cursor:
             sql = """INSERT INTO files (name, file_path, file_type, size, status) 
                      VALUES (%s, %s, %s, %s, %s)"""
             cursor.execute(sql, (original_filename, file_path, file_type, file_size, 'pending'))
             file_id = cursor.lastrowid
+            
+            # 如果有提供 kb_id,立即建立關聯
+            if kb_id:
+                cursor.execute("INSERT IGNORE INTO kb_files (kb_id, file_id) VALUES (%s, %s)", (kb_id, file_id))
+                
         conn.commit()
         conn.close()
         
@@ -203,8 +232,16 @@ def process_kb_files(kb_id):
     
     if not file_ids:
         return jsonify({"success": False, "error": "請選擇要處理的檔案"}), 400
-        
+    
     try:
+        # 獲取知識庫配置
+        kb_config = rag_service.get_kb_config(kb_id)
+        chunk_strategy = kb_config.get('chunk_strategy', 'character')
+        chunk_size = kb_config.get('chunk_size', 500)
+        chunk_overlap = kb_config.get('chunk_overlap', 50)
+        
+        print(f"[RAG] 處理配置 - 策略: {chunk_strategy}, 大小: {chunk_size}, 重疊: {chunk_overlap}")
+        
         conn = get_db_connection()
         all_chunks = []
         
@@ -214,7 +251,7 @@ def process_kb_files(kb_id):
                 cursor.execute("INSERT IGNORE INTO kb_files (kb_id, file_id) VALUES (%s, %s)", (kb_id, f_id))
             
             # 取得檔案路徑
-            cursor.execute("SELECT id, file_path FROM files WHERE id IN %s", (tuple(file_ids),))
+            cursor.execute("SELECT id, file_path, name FROM files WHERE id IN %s", (tuple(file_ids),))
             files = cursor.fetchall()
             
             for f in files:
@@ -223,23 +260,132 @@ def process_kb_files(kb_id):
                     cursor.execute("UPDATE files SET status = 'processing' WHERE id = %s", (f['id'],))
                     conn.commit()
                     
-                    # 提取文字並切分
+                    print(f"[RAG] 處理檔案: {f['name']}")
+                    
+                    # 提取文字
                     text = rag_service.extract_text(f['file_path'])
-                    chunks = rag_service.split_text(text)
+                    print(f"[RAG] 提取文字長度: {len(text)} 字元")
+                    
+                    # 使用配置的策略切分
+                    chunks = rag_service.split_text(
+                        text, 
+                        strategy=chunk_strategy,
+                        chunk_size=chunk_size,
+                        chunk_overlap=chunk_overlap
+                    )
+                    print(f"[RAG] 切分完成,產生 {len(chunks)} 個 chunks")
+                    
                     all_chunks.extend(chunks)
                     
                     # 更新狀態為已完成
                     cursor.execute("UPDATE files SET status = 'completed' WHERE id = %s", (f['id'],))
                 except Exception as ex:
+                    print(f"[RAG] 處理檔案失敗: {str(ex)}")
                     cursor.execute("UPDATE files SET status = 'failed', error_message = %s WHERE id = %s", 
                                    (str(ex), f['id']))
             
             # 建立向量索引
             if all_chunks:
+                print(f"[RAG] 開始建立向量索引,共 {len(all_chunks)} 個 chunks")
                 rag_service.create_kb_index(kb_id, all_chunks)
+                print(f"[RAG] 向量索引建立完成")
                 
         conn.commit()
         conn.close()
-        return jsonify({"success": True, "message": "檔案處理與索引建立完成"})
+        return jsonify({
+            "success": True, 
+            "message": "檔案處理與索引建立完成",
+            "chunks_count": len(all_chunks),
+            "config": {
+                "strategy": chunk_strategy,
+                "chunk_size": chunk_size,
+                "chunk_overlap": chunk_overlap
+            }
+        })
+    except Exception as e:
+        print(f"[RAG] 處理失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@rag_bp.route('/api/rag/kb/<int:kb_id>/config', methods=['GET'])
+def get_kb_config_api(kb_id):
+    """獲取知識庫配置"""
+    try:
+        config = rag_service.get_kb_config(kb_id)
+        return jsonify({"success": True, "data": config})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@rag_bp.route('/api/rag/kb/<int:kb_id>/config', methods=['PUT'])
+def update_kb_config_api(kb_id):
+    """更新知識庫配置"""
+    data = request.get_json()
+    
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            # 檢查配置是否存在
+            cursor.execute("SELECT id FROM kb_configs WHERE kb_id = %s", (kb_id,))
+            exists = cursor.fetchone()
+            
+            if exists:
+                # 更新現有配置
+                update_fields = []
+                values = []
+                
+                if 'chunk_strategy' in data:
+                    update_fields.append("chunk_strategy = %s")
+                    values.append(data['chunk_strategy'])
+                
+                if 'chunk_size' in data:
+                    update_fields.append("chunk_size = %s")
+                    values.append(data['chunk_size'])
+                
+                if 'chunk_overlap' in data:
+                    update_fields.append("chunk_overlap = %s")
+                    values.append(data['chunk_overlap'])
+                
+                if 'embedding_provider' in data:
+                    update_fields.append("embedding_provider = %s")
+                    values.append(data['embedding_provider'])
+                
+                if 'embedding_model' in data:
+                    update_fields.append("embedding_model = %s")
+                    values.append(data['embedding_model'])
+                
+                if 'retrieval_top_k' in data:
+                    update_fields.append("retrieval_top_k = %s")
+                    values.append(data['retrieval_top_k'])
+                
+                if 'index_type' in data:
+                    update_fields.append("index_type = %s")
+                    values.append(data['index_type'])
+                
+                if update_fields:
+                    values.append(kb_id)
+                    sql = f"UPDATE kb_configs SET {', '.join(update_fields)} WHERE kb_id = %s"
+                    cursor.execute(sql, values)
+            else:
+                # 創建新配置
+                cursor.execute("""
+                    INSERT INTO kb_configs 
+                    (kb_id, chunk_strategy, chunk_size, chunk_overlap, 
+                     embedding_provider, embedding_model, index_type, retrieval_top_k)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    kb_id,
+                    data.get('chunk_strategy', 'character'),
+                    data.get('chunk_size', 500),
+                    data.get('chunk_overlap', 50),
+                    data.get('embedding_provider', 'openai'),
+                    data.get('embedding_model', 'text-embedding-3-small'),
+                    data.get('index_type', 'flat'),
+                    data.get('retrieval_top_k', 3)
+                ))
+        
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True, "message": "配置已更新"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

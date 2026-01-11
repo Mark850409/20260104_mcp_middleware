@@ -67,11 +67,20 @@ fi
 
 # Step 5: RAG 資料庫初始化
 echo ""
-echo "[5/5] 建立 RAG 資料表..."
+echo "[5/6] 建立 RAG 資料表..."
 if python init_rag_db.py; then
   echo "✓ RAG 資料表初始化完成"
 else
   echo "⚠ init_rag_db.py 執行失敗或表已存在"
+fi
+
+# Step 6: 知識庫配置遷移
+echo ""
+echo "[6/6] 建立知識庫配置表..."
+if python migrations/add_kb_configs.py; then
+  echo "✓ 知識庫配置表初始化完成"
+else
+  echo "⚠ add_kb_configs.py 執行失敗或表已存在"
 fi
 
 echo ""

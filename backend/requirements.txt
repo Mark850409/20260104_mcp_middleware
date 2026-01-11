@@ -15,5 +15,6 @@ faiss-cpu==1.7.4
 pypdf==3.17.4
 python-docx==1.1.0
 tiktoken==0.5.2
+sentence-transformers==2.2.2
 # MCP Client 使用較舊版本以避免與 fastmcp 衝突
 # 或者不使用 mcp 套件,改用直接的 HTTP 通訊
