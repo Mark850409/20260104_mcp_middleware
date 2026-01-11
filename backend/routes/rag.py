@@ -141,17 +141,33 @@ def upload_file():
         
     file = request.files['file']
     original_filename = file.filename
-    filename = secure_filename(file.filename)
-    import time
-    # 增加時間戳避免重複檔名
-    filename = f"{int(time.time())}_{filename}"
-    file_path = os.path.join(rag_service.files_path, filename)
-    file.save(file_path)
     
-    file_size = os.path.getsize(file_path)
-    file_type = os.path.splitext(filename)[1].replace('.', '')
+    if not original_filename:
+        return jsonify({"success": False, "error": "檔案名稱無效"}), 400
+    
+    # 獲取副檔名
+    file_ext = os.path.splitext(original_filename)[1].lower()
+    file_type = file_ext.replace('.', '')
+    
+    # 檢查檔案類型
+    allowed_extensions = ['.pdf', '.docx', '.txt', '.md']
+    if file_ext not in allowed_extensions:
+        return jsonify({
+            "success": False, 
+            "error": f"不支援的檔案類型: {file_ext}",
+            "error_message": "不支援的檔案類型",
+            "file_type": file_type
+        }), 400
+    
+    import time
+    # 使用時間戳 + 副檔名作為檔名,避免中文問題
+    filename = f"{int(time.time())}{file_ext}"
+    file_path = os.path.join(rag_service.files_path, filename)
     
     try:
+        file.save(file_path)
+        file_size = os.path.getsize(file_path)
+        
         conn = get_db_connection()
         with conn.cursor() as cursor:
             sql = """INSERT INTO files (name, file_path, file_type, size, status) 
@@ -160,8 +176,23 @@ def upload_file():
             file_id = cursor.lastrowid
         conn.commit()
         conn.close()
-        return jsonify({"success": True, "data": {"id": file_id, "name": original_filename}})
+        
+        return jsonify({
+            "success": True, 
+            "data": {
+                "id": file_id, 
+                "name": original_filename,
+                "file_type": file_type,
+                "size": file_size
+            }
+        })
     except Exception as e:
+        # 如果儲存失敗,刪除已上傳的檔案
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except:
+                pass
         return jsonify({"success": False, "error": str(e)}), 500
 
 @rag_bp.route('/api/rag/kb/<int:kb_id>/process', methods=['POST'])

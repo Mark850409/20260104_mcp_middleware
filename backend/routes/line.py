@@ -315,6 +315,44 @@ def get_or_create_conversation(user_id: str) -> dict:
         conversation = cursor.fetchone()
         
         if conversation:
+            # 檢查是否需要更新對話的 kb_id 和 system_prompt_id
+            bot_config = get_active_line_bot_config()
+            if bot_config:
+                bot_kb_id = bot_config.get('kb_id')
+                conv_kb_id = conversation.get('kb_id')
+                bot_prompt_id = bot_config.get('system_prompt_id')
+                conv_prompt_id = conversation.get('system_prompt_id')
+                
+                needs_update = False
+                update_fields = []
+                update_values = []
+                
+                # 檢查 kb_id
+                if bot_kb_id != conv_kb_id:
+                    print(f"[LINE BOT] 更新對話 {conversation['id']} 的知識庫 ID: {conv_kb_id} -> {bot_kb_id}")
+                    update_fields.append("kb_id = %s")
+                    update_values.append(bot_kb_id)
+                    conversation['kb_id'] = bot_kb_id
+                    needs_update = True
+                
+                # 檢查 system_prompt_id
+                if bot_prompt_id != conv_prompt_id:
+                    print(f"[LINE BOT] 更新對話 {conversation['id']} 的系統提示詞 ID: {conv_prompt_id} -> {bot_prompt_id}")
+                    update_fields.append("system_prompt_id = %s")
+                    update_values.append(bot_prompt_id)
+                    conversation['system_prompt_id'] = bot_prompt_id
+                    needs_update = True
+                
+                # 執行更新
+                if needs_update:
+                    update_values.append(conversation['id'])
+                    cursor.execute(f"""
+                        UPDATE conversations 
+                        SET {', '.join(update_fields)}
+                        WHERE id = %s
+                    """, update_values)
+                    conn.commit()
+            
             return conversation
         
         # 建立新對話
@@ -333,21 +371,34 @@ def get_or_create_conversation(user_id: str) -> dict:
         model_name = 'gpt-4o-mini'
         mcp_enabled = False
         mcp_servers = None
+        kb_id = None
+        system_prompt_id = None
         
-        if bot_config and bot_config.get('selected_mcp_servers'):
-            mcp_enabled = True
-            mcp_servers = json.dumps(bot_config['selected_mcp_servers'])
+        if bot_config:
+            if bot_config.get('selected_mcp_servers'):
+                mcp_enabled = True
+                mcp_servers = json.dumps(bot_config['selected_mcp_servers'])
+            # 從 LINE BOT 設定中繼承知識庫 ID
+            if bot_config.get('kb_id'):
+                kb_id = bot_config['kb_id']
+                print(f"[LINE BOT] 建立對話時綁定知識庫 ID: {kb_id}")
+            # 從 LINE BOT 設定中繼承系統提示詞 ID
+            if bot_config.get('system_prompt_id'):
+                system_prompt_id = bot_config['system_prompt_id']
+                print(f"[LINE BOT] 建立對話時綁定系統提示詞 ID: {system_prompt_id}")
         
         cursor.execute("""
             INSERT INTO conversations 
-            (title, model_provider, model_name, mcp_enabled, mcp_servers, line_user_id, source)
-            VALUES (%s, %s, %s, %s, %s, %s, 'line')
+            (title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id, kb_id, line_user_id, source)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'line')
         """, (
             f"LINE - {display_name}",
             model_provider,
             model_name,
             mcp_enabled,
             mcp_servers,
+            system_prompt_id,
+            kb_id,
             user_id
         ))
         
@@ -688,7 +739,7 @@ def list_configs():
         
         cursor.execute("""
             SELECT id, bot_name, webhook_url, is_active, 
-                   selected_mcp_servers, kb_id, created_at, updated_at
+                   selected_mcp_servers, system_prompt_id, kb_id, created_at, updated_at
             FROM line_bot_configs 
             ORDER BY created_at DESC
         """)
@@ -745,8 +796,8 @@ def create_config():
         cursor.execute("""
             INSERT INTO line_bot_configs 
             (bot_name, channel_access_token, channel_secret, webhook_url, 
-             is_active, selected_mcp_servers, kb_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+             is_active, selected_mcp_servers, system_prompt_id, kb_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             data['bot_name'],
             channel_access_token,
@@ -754,6 +805,7 @@ def create_config():
             webhook_url,
             data.get('is_active', True),
             mcp_servers_json,
+            data.get('system_prompt_id'),
             data.get('kb_id')
         ))
         
@@ -810,6 +862,10 @@ def update_config(config_id):
         if 'selected_mcp_servers' in data:
             update_fields.append("selected_mcp_servers = %s")
             values.append(json.dumps(data['selected_mcp_servers']))
+        
+        if 'system_prompt_id' in data:
+            update_fields.append("system_prompt_id = %s")
+            values.append(data['system_prompt_id'])
             
         if 'kb_id' in data:
             update_fields.append("kb_id = %s")

@@ -95,7 +95,7 @@
               </div>
 
               <!-- 答案內容 (後顯示) -->
-              <div v-if="message.content" class="message-text">{{ message.content }}</div>
+              <div v-if="message.content" class="message-text markdown-body" v-html="renderMarkdown(message.content)"></div>
               
               <div class="message-time">{{ formatTime(message.created_at) }}</div>
             </div>
@@ -261,6 +261,15 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import axios from 'axios'
 import Swal from 'sweetalert2'
+import { marked } from 'marked'
+
+// 配置 marked
+marked.setOptions({
+  breaks: true, // 支援換行
+  gfm: true, // 啟用 GitHub Flavored Markdown
+  headerIds: false,
+  mangle: false
+})
 
 export default {
   name: 'Chatbot',
@@ -394,20 +403,9 @@ export default {
       })
       
       if (!result.isConfirmed) return
-      
-      const loadingTimer = setTimeout(() => {
-        Swal.fire({
-          title: '正在清空...',
-          text: '正在刪除所有對話紀錄，請稍後...',
-          allowOutsideClick: false,
-          didOpen: () => Swal.showLoading()
-        })
-      }, 3000)
 
       try {
         const response = await axios.delete(`${API_URL}/api/chat/conversations/clear-all`)
-        clearTimeout(loadingTimer)
-        if (Swal.isVisible()) Swal.close()
 
         if (response.data.success) {
           conversations.value = []
@@ -417,32 +415,27 @@ export default {
             icon: 'success',
             title: '已清空',
             text: response.data.message,
-            timer: 1500,
-            showConfirmButton: false
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 2000
           })
         }
       } catch (error) {
-        clearTimeout(loadingTimer)
-        if (Swal.isVisible()) Swal.close()
         console.error('清空對話失敗:', error)
         Swal.fire({
           icon: 'error',
           title: '清空失敗',
-          text: error.message
+          text: error.message,
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
         })
       }
     }
     
     const createNewConversation = async () => {
-      const loadingTimer = setTimeout(() => {
-        Swal.fire({
-          title: '正在建立對話...',
-          text: '正在初始化聊天環境，請稍後...',
-          allowOutsideClick: false,
-          didOpen: () => Swal.showLoading()
-        })
-      }, 3000)
-
       try {
         const response = await axios.post(`${API_URL}/api/chat/conversations`, {
           title: `新對話 ${new Date().toLocaleString()}`,
@@ -453,21 +446,21 @@ export default {
           system_prompt_id: selectedPromptId.value,
           kb_id: selectedKbId.value
         })
-        clearTimeout(loadingTimer)
-        if (Swal.isVisible()) Swal.close()
         
         if (response.data.success) {
           await loadConversations()
           selectConversation(response.data.conversation_id)
         }
       } catch (error) {
-        clearTimeout(loadingTimer)
-        if (Swal.isVisible()) Swal.close()
         console.error('建立對話失敗:', error)
         Swal.fire({
           icon: 'error',
           title: '建立對話失敗',
-          text: error.message
+          text: error.message,
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
         })
       }
     }
@@ -563,15 +556,6 @@ export default {
       userInput.value = ''
       isLoading.value = true
       
-      const loadingTimer = setTimeout(() => {
-        Swal.fire({
-          title: '正在等待回應...',
-          text: 'AI 正在處理您的請求，請稍後...',
-          allowOutsideClick: false,
-          didOpen: () => Swal.showLoading()
-        })
-      }, 3000)
-
       // 立即顯示使用者訊息
       currentMessages.value.push({
         role: 'user',
@@ -612,16 +596,16 @@ export default {
             scrollToBottom()
           }
         }
-        clearTimeout(loadingTimer)
-        if (Swal.isVisible()) Swal.close()
       } catch (error) {
-        clearTimeout(loadingTimer)
-        if (Swal.isVisible()) Swal.close()
         console.error('發送訊息失敗:', error)
         Swal.fire({
           icon: 'error',
           title: '發送失敗',
-          text: (error.response?.data?.error || error.message)
+          text: (error.response?.data?.error || error.message),
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
         })
       } finally {
         isLoading.value = false
@@ -743,6 +727,97 @@ export default {
       return formatted.charAt(0).toUpperCase() + formatted.slice(1)
     }
 
+    const renderMarkdown = (content) => {
+      if (!content) return ''
+      try {
+        let processedContent = content
+        
+        // 如果已經有程式碼標記,直接渲染
+        if (content.includes('```')) {
+          return marked.parse(content)
+        }
+        
+        // 檢測程式碼片段並自動包裹
+        // 匹配常見的程式碼模式
+        const codeBlockRegex = /((?:^|\n)(?:def |class |import |from |print\(|console\.log|function |const |let |var |public |private |#include|package |<?php)[\s\S]*?)(?=\n\n|\n[^\s]|$)/g
+        
+        // 簡單的行內程式碼檢測
+        const inlineCodeRegex = /\b(print\([^)]+\)|console\.log\([^)]+\)|def \w+|class \w+|function \w+)\b/g
+        
+        // 檢查是否包含程式碼
+        if (codeBlockRegex.test(content) || inlineCodeRegex.test(content)) {
+          // 重置 regex
+          codeBlockRegex.lastIndex = 0
+          inlineCodeRegex.lastIndex = 0
+          
+          // 嘗試智能分割內容
+          const lines = content.split('\n')
+          const result = []
+          let i = 0
+          
+          while (i < lines.length) {
+            const line = lines[i]
+            
+            // 檢查是否是程式碼行
+            const isCodeStart = /^(def |class |import |from |print\(|console\.log|function |const |let |var |public |private |#include|package |<?php)/.test(line.trim())
+            
+            if (isCodeStart) {
+              // 收集程式碼區塊
+              const codeLines = []
+              let lang = 'python' // 預設語言
+              
+              // 根據關鍵字判斷語言
+              if (/^(console\.log|function |const |let |var )/.test(line.trim())) {
+                lang = 'javascript'
+              } else if (/^(public |private |class \w+\s*{)/.test(line.trim())) {
+                lang = 'java'
+              } else if (/^(#include|using namespace)/.test(line.trim())) {
+                lang = 'cpp'
+              } else if (/^(<?php)/.test(line.trim())) {
+                lang = 'php'
+              }
+              
+              codeLines.push(line)
+              i++
+              
+              // 繼續收集程式碼行
+              while (i < lines.length) {
+                const nextLine = lines[i]
+                // 如果是空行或縮排行,繼續
+                if (nextLine.trim() === '' || /^(\s{2,}|\t)/.test(nextLine)) {
+                  codeLines.push(nextLine)
+                  i++
+                } else if (/^(def |class |import |from |print\(|return |if |else|for |while |try |except )/.test(nextLine.trim())) {
+                  // 繼續程式碼
+                  codeLines.push(nextLine)
+                  i++
+                } else {
+                  // 結束程式碼區塊
+                  break
+                }
+              }
+              
+              // 添加程式碼區塊
+              result.push('```' + lang)
+              result.push(...codeLines)
+              result.push('```')
+            } else {
+              // 普通文字行
+              result.push(line)
+              i++
+            }
+          }
+          
+          processedContent = result.join('\n')
+        }
+        
+        return marked.parse(processedContent)
+      } catch (e) {
+        console.error('Markdown 渲染失敗:', e)
+        return content.replace(/\n/g, '<br>')
+      }
+    }
+
     
     // 初始化
     onMounted(async () => {
@@ -783,6 +858,7 @@ export default {
       parseToolArguments,
       parseToolResult,
       formatKey,
+      renderMarkdown,
       toggleMcpServer,
       adjustTextareaHeight,
       inputArea,
@@ -1846,4 +1922,226 @@ export default {
 .message-time { font-size: 0.7rem; color: #94a3b8; margin-top: 0.5rem; font-weight: 500; }
 .typing-indicator span { background: #cbd5e1; }
 .empty-state { text-align: center; padding: 2rem; color: #94a3b8; font-style: italic; }
+
+/* Markdown 樣式 */
+.markdown-body {
+  line-height: 1.6;
+  color: #1e293b;
+}
+
+.markdown-body p {
+  margin: 0.75rem 0;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin: 1.25rem 0 0.75rem 0;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #0f172a;
+}
+
+.markdown-body h1 { font-size: 1.75rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; }
+.markdown-body h2 { font-size: 1.5rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.4rem; }
+.markdown-body h3 { font-size: 1.25rem; }
+.markdown-body h4 { font-size: 1.1rem; }
+.markdown-body h5 { font-size: 1rem; }
+.markdown-body h6 { font-size: 0.9rem; color: #475569; }
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 1rem 0;
+  padding-left: 2.5rem;
+}
+
+.markdown-body li {
+  margin: 0.8rem 0;
+  line-height: 1.8;
+  padding-left: 0.5rem;
+}
+
+/* 巢狀列表 */
+.markdown-body li > ul,
+.markdown-body li > ol {
+  margin: 0.6rem 0;
+  padding-left: 2rem;
+}
+
+/* 第一層列表 */
+.markdown-body > ul > li,
+.markdown-body > ol > li {
+  margin: 1rem 0;
+  font-weight: 500;
+}
+
+/* 第二層列表(子項目) */
+.markdown-body li ul li,
+.markdown-body li ol li {
+  margin: 0.5rem 0;
+  font-size: 0.95em;
+  font-weight: 400;
+  padding-left: 0.3rem;
+}
+
+/* 第三層列表 */
+.markdown-body li li ul li,
+.markdown-body li li ol li {
+  margin: 0.3rem 0;
+  font-size: 0.9em;
+}
+
+.markdown-body ul li {
+  list-style-type: disc;
+}
+
+.markdown-body ol li {
+  list-style-type: decimal;
+}
+
+/* 巢狀列表的樣式 */
+.markdown-body ul ul li {
+  list-style-type: circle;
+}
+
+.markdown-body ul ul ul li {
+  list-style-type: square;
+}
+
+.markdown-body ol ol li {
+  list-style-type: lower-alpha;
+}
+
+.markdown-body ol ol ol li {
+  list-style-type: lower-roman;
+}
+
+/* 確保列表項目之間有足夠的空間 */
+.markdown-body li + li {
+  margin-top: 0.8rem;
+}
+
+.markdown-body li ul li + li,
+.markdown-body li ol li + li {
+  margin-top: 0.5rem;
+}
+
+.markdown-body code {
+  background: #f1f5f9;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  color: #e11d48;
+}
+
+.markdown-body pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.markdown-body pre code {
+  background: transparent;
+  padding: 0;
+  color: #e2e8f0;
+  font-size: 0.875rem;
+}
+
+.markdown-body blockquote {
+  border-left: 4px solid #cbd5e1;
+  padding-left: 1rem;
+  margin: 1rem 0;
+  color: #64748b;
+  font-style: italic;
+}
+
+.markdown-body a {
+  color: #3b82f6;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.markdown-body a:hover {
+  border-bottom-color: #3b82f6;
+}
+
+.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+  border: 1px solid #e2e8f0;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.markdown-body table th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 2px solid #e2e8f0;
+  margin: 1.5rem 0;
+}
+
+.markdown-body strong {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.markdown-body em {
+  font-style: italic;
+}
+
+/* 載入動畫 */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #94a3b8;
+  animation: typing 1.4s infinite;
+}
+
+.typing-indicator span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}
 </style>

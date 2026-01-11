@@ -22,7 +22,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-  echo "❌ 數據庫連接超時，無法啟動應用"
+  echo "❌ 數據庫連接超時,無法啟動應用"
   exit 1
 fi
 

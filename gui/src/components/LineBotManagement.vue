@@ -79,6 +79,15 @@
                 </div>
               </div>
               <div class="info-row">
+                <span class="label">系統提示詞:</span>
+                <div class="prompt-info">
+                  <span v-if="config.system_prompt_id" class="prompt-badge">
+                    {{ getPromptName(config.system_prompt_id) }}
+                  </span>
+                  <span v-else class="no-tools">無系統提示詞</span>
+                </div>
+              </div>
+              <div class="info-row">
                 <span class="label">知識庫 (RAG):</span>
                 <div class="kb-info">
                   <span v-if="config.kb_id" class="kb-badge">
@@ -166,6 +175,16 @@
           </div>
 
           <div class="form-group">
+            <label>選擇系統提示詞</label>
+            <select v-model="configForm.system_prompt_id" class="form-input">
+              <option :value="null">無系統提示詞</option>
+              <option v-for="prompt in availablePrompts" :key="prompt.id" :value="prompt.id">
+                {{ prompt.name }} {{ prompt.is_default ? '(預設)' : '' }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
             <label>選擇知識庫 (RAG)</label>
             <select v-model="configForm.kb_id" class="form-input">
               <option :value="null">不使用知識庫</option>
@@ -203,10 +222,12 @@ export default {
     const editingConfig = ref(null)
     const availableServers = ref([])
     const availableKbs = ref([])
+    const availablePrompts = ref([])
     const configForm = ref({
       bot_name: '',
       selected_mcp_servers: [],
       is_active: true,
+      system_prompt_id: null,
       kb_id: null
     })
 
@@ -271,6 +292,18 @@ export default {
       }
     }
 
+    // 載入可用的系統提示詞
+    const loadAvailablePrompts = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/api/prompts`)
+        if (response.data.success) {
+          availablePrompts.value = response.data.prompts
+        }
+      } catch (error) {
+        console.error('載入系統提示詞失敗:', error)
+      }
+    }
+
     // 切換啟用狀態
     const toggleConfig = async (configId, isActive) => {
       const loadingTimer = setTimeout(() => {
@@ -326,6 +359,7 @@ export default {
         bot_name: config.bot_name,
         selected_mcp_servers: config.selected_mcp_servers || [],
         is_active: config.is_active,
+        system_prompt_id: config.system_prompt_id,
         kb_id: config.kb_id
       }
       loadAvailableServers()
@@ -369,6 +403,7 @@ export default {
         bot_name: '',
         selected_mcp_servers: [],
         is_active: true,
+        system_prompt_id: null,
         kb_id: null
       }
     }
@@ -401,6 +436,7 @@ export default {
             bot_name: configForm.value.bot_name,
             selected_mcp_servers: configForm.value.selected_mcp_servers,
             is_active: configForm.value.is_active,
+            system_prompt_id: configForm.value.system_prompt_id,
             kb_id: configForm.value.kb_id
           }
 
@@ -495,11 +531,17 @@ export default {
       return kb ? kb.name : `未知知識庫 (${kbId})`
     }
 
+    const getPromptName = (promptId) => {
+      const prompt = availablePrompts.value.find(p => p.id === promptId)
+      return prompt ? prompt.name : `未知提示詞 (${promptId})`
+    }
+
     // 初始化
     onMounted(async () => {
       await loadConfigs()
       await loadAvailableServers()
       await loadAvailableKbs()
+      await loadAvailablePrompts()
     })
 
     return {
@@ -519,7 +561,9 @@ export default {
       formatDate,
       getValidServers,
       availableKbs,
-      getKbName
+      getKbName,
+      availablePrompts,
+      getPromptName
     }
   }
 }
@@ -708,6 +752,22 @@ export default {
 .tool-badge {
   background: #e3f2fd;
   color: #1976d2;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+.prompt-badge {
+  background: #f3e5f5;
+  color: #7b1fa2;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+.kb-badge {
+  background: #fff3e0;
+  color: #e65100;
   padding: 0.25rem 0.75rem;
   border-radius: 12px;
   font-size: 0.85rem;
