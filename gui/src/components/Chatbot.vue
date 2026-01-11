@@ -223,6 +223,15 @@
                         </option>
                       </select>
                     </div>
+                    <div class="form-group">
+                      <label>知識庫 (RAG)</label>
+                      <select v-model="selectedKbId" class="popup-select">
+                        <option :value="null">不使用知識庫</option>
+                        <option v-for="kb in availableKbs" :key="kb.id" :value="kb.id">
+                          {{ kb.name }}
+                        </option>
+                      </select>
+                    </div>
                   </div>
                 </div>
                 <!-- Backdrop for closing -->
@@ -279,6 +288,8 @@ export default {
     const mcpEnabled = ref(false)
     const allModels = ref({})
     const availablePrompts = ref([])
+    const availableKbs = ref([])
+    const selectedKbId = ref(null)
     const messagesContainer = ref(null)
     
     // 計算屬性
@@ -358,6 +369,17 @@ export default {
         console.error('載入提示詞失敗:', error)
       }
     }
+
+    const loadKbs = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/api/rag/kb`)
+        if (response.data.success) {
+          availableKbs.value = response.data.data
+        }
+      } catch (error) {
+        console.error('載入知識庫失敗:', error)
+      }
+    }
     
     const clearAllConversations = async () => {
       const result = await Swal.fire({
@@ -428,7 +450,8 @@ export default {
           model_name: selectedModel.value,
           mcp_enabled: selectedMcpServers.value.length > 0,
           mcp_servers: selectedMcpServers.value,
-          system_prompt_id: selectedPromptId.value
+          system_prompt_id: selectedPromptId.value,
+          kb_id: selectedKbId.value
         })
         clearTimeout(loadingTimer)
         if (Swal.isVisible()) Swal.close()
@@ -470,6 +493,7 @@ export default {
           selectedModel.value = conv.model_name
           selectedMcpServers.value = conv.mcp_servers || []
           selectedPromptId.value = conv.system_prompt_id || null
+          selectedKbId.value = conv.kb_id || null
           
           // 如果是 LINE 對話,啟動自動刷新
           if (conv.source === 'line') {
@@ -614,7 +638,8 @@ export default {
           model_provider: selectedProvider.value,
           model_name: selectedModel.value,
           mcp_servers: selectedMcpServers.value,
-          system_prompt_id: selectedPromptId.value
+          system_prompt_id: selectedPromptId.value,
+          kb_id: selectedKbId.value
         })
         
         // 更新本地對話列表中的資料
@@ -631,8 +656,8 @@ export default {
       }
     }
     
-    // 監看模型與 MCP 工具、提示詞變更,自動同步
-    watch([selectedProvider, selectedModel, selectedMcpServers, selectedPromptId], () => {
+    // 監看模型與 MCP 工具、提示詞、知識庫變更,自動同步
+    watch([selectedProvider, selectedModel, selectedMcpServers, selectedPromptId, selectedKbId], () => {
       updateConversationConfig()
     }, { deep: true })
     
@@ -724,6 +749,7 @@ export default {
       await loadModels()
       await loadMcpServers()
       await loadPrompts()
+      await loadKbs()
       await loadConversations()
     })
     
@@ -765,7 +791,9 @@ export default {
       currentConversationSource,
       validSelectedMcpServers,
       availablePrompts,
-      selectedPromptId
+      selectedPromptId,
+      availableKbs,
+      selectedKbId
     }
   }
 }

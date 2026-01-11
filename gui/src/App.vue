@@ -30,6 +30,12 @@
         >
           📝 提示詞管理
         </button>
+        <button
+          :class="['nav-tab', { active: currentView === 'rag' }]"
+          @click="currentView = 'rag'"
+        >
+          📚 知識庫管理
+        </button>
       </div>
     </nav>
 
@@ -54,6 +60,11 @@
       <div v-if="currentView === 'prompts'" class="view-container">
         <PromptManagement />
       </div>
+
+      <!-- 知識庫管理頁面 -->
+      <div v-if="currentView === 'rag'" class="view-container">
+        <KnowledgeBaseManagement />
+      </div>
     </div>
   </div>
 </template>
@@ -64,6 +75,7 @@ import MCPManagement from './components/MCPManagement.vue'
 import Chatbot from './components/Chatbot.vue'
 import LineBotManagement from './components/LineBotManagement.vue'
 import PromptManagement from './components/PromptManagement.vue'
+import KnowledgeBaseManagement from './components/KnowledgeBaseManagement.vue'
 
 export default {
   name: 'App',
@@ -71,7 +83,8 @@ export default {
     MCPManagement,
     Chatbot,
     LineBotManagement,
-    PromptManagement
+    PromptManagement,
+    KnowledgeBaseManagement
   },
   setup() {
     const currentView = ref('mcp')

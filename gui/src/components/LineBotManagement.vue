@@ -79,6 +79,15 @@
                 </div>
               </div>
               <div class="info-row">
+                <span class="label">知識庫 (RAG):</span>
+                <div class="kb-info">
+                  <span v-if="config.kb_id" class="kb-badge">
+                    {{ getKbName(config.kb_id) }}
+                  </span>
+                  <span v-else class="no-tools">未選擇知識庫</span>
+                </div>
+              </div>
+              <div class="info-row">
                 <span class="label">建立時間:</span>
                 <span>{{ formatDate(config.created_at) }}</span>
               </div>
@@ -156,6 +165,16 @@
             </div>
           </div>
 
+          <div class="form-group">
+            <label>選擇知識庫 (RAG)</label>
+            <select v-model="configForm.kb_id" class="form-input">
+              <option :value="null">不使用知識庫</option>
+              <option v-for="kb in availableKbs" :key="kb.id" :value="kb.id">
+                {{ kb.name }}
+              </option>
+            </select>
+          </div>
+
         </div>
         <div class="modal-footer">
           <button @click="closeDialog" class="btn btn-secondary">取消</button>
@@ -183,11 +202,12 @@ export default {
     const showAddDialog = ref(false)
     const editingConfig = ref(null)
     const availableServers = ref([])
-
+    const availableKbs = ref([])
     const configForm = ref({
       bot_name: '',
       selected_mcp_servers: [],
-      is_active: true
+      is_active: true,
+      kb_id: null
     })
 
     // 載入設定列表
@@ -236,6 +256,18 @@ export default {
         }
       } catch (error) {
         console.error('載入 MCP Servers 失敗:', error)
+      }
+    }
+
+    // 載入可用的知識庫
+    const loadAvailableKbs = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/api/rag/kb`)
+        if (response.data.success) {
+          availableKbs.value = response.data.data
+        }
+      } catch (error) {
+        console.error('載入知識庫失敗:', error)
       }
     }
 
@@ -293,7 +325,8 @@ export default {
       configForm.value = {
         bot_name: config.bot_name,
         selected_mcp_servers: config.selected_mcp_servers || [],
-        is_active: config.is_active
+        is_active: config.is_active,
+        kb_id: config.kb_id
       }
       loadAvailableServers()
     }
@@ -335,7 +368,8 @@ export default {
       configForm.value = {
         bot_name: '',
         selected_mcp_servers: [],
-        is_active: true
+        is_active: true,
+        kb_id: null
       }
     }
 
@@ -366,7 +400,8 @@ export default {
           const updateData = {
             bot_name: configForm.value.bot_name,
             selected_mcp_servers: configForm.value.selected_mcp_servers,
-            is_active: configForm.value.is_active
+            is_active: configForm.value.is_active,
+            kb_id: configForm.value.kb_id
           }
 
           const response = await axios.put(
@@ -455,10 +490,16 @@ export default {
       return selectedServers.filter(name => availableNames.includes(name))
     }
 
+    const getKbName = (kbId) => {
+      const kb = availableKbs.value.find(k => k.id === kbId)
+      return kb ? kb.name : `未知知識庫 (${kbId})`
+    }
+
     // 初始化
     onMounted(async () => {
       await loadConfigs()
       await loadAvailableServers()
+      await loadAvailableKbs()
     })
 
     return {
@@ -476,7 +517,9 @@ export default {
       saveConfig,
       copyWebhookUrl,
       formatDate,
-      getValidServers
+      getValidServers,
+      availableKbs,
+      getKbName
     }
   }
 }

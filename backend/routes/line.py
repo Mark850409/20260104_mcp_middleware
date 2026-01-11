@@ -9,6 +9,7 @@ import os
 from services.line_client import create_line_client
 from services.ai_client import AIClientFactory
 from services.mcp_client import mcp_client
+from services.rag_service import rag_service
 
 # 建立 Blueprint
 line_bp = Blueprint('line', __name__, url_prefix='/api/line')
@@ -445,7 +446,7 @@ def get_ai_response(conversation_id: int, user_message: str, bot_config: dict) -
             print(f"[LINE BOT] 找不到對話: {conversation_id}")
             return "抱歉,發生錯誤"
         
-        print(f"[LINE BOT] 對話設定: MCP 啟用={conversation['mcp_enabled']}, MCP Servers={conversation['mcp_servers']}")
+        print(f"[LINE BOT] 對話設定: MCP 啟用={conversation['mcp_enabled']}, MCP Servers={conversation['mcp_servers']}, KB ID={bot_config.get('kb_id')}")
         
         # 取得歷史訊息
         # ⚠️ 重要:只載入 user 和 assistant 的文字訊息
@@ -466,6 +467,17 @@ def get_ai_response(conversation_id: int, user_message: str, bot_config: dict) -
                 "role": msg['role'],
                 "content": msg['content']
             })
+        
+        # 如果有知識庫，進行 RAG 檢索
+        kb_id = bot_config.get('kb_id')
+        if kb_id:
+            print(f"[LINE BOT RAG] 正在從知識庫 {kb_id} 檢索相關內容...")
+            context_chunks = rag_service.query_kb(kb_id, user_message)
+            if context_chunks:
+                context_str = "\n".join(context_chunks)
+                rag_prompt = f"以下是相關的參考資料，請根據這些資料來回答使用者的問題：\n\n{context_str}\n\n"
+                messages.insert(-1, {"role": "system", "content": rag_prompt})
+                print(f"[LINE BOT RAG] 已加入 {len(context_chunks)} 條參考資料")
         
         cursor.close()
         conn.close()
@@ -676,7 +688,7 @@ def list_configs():
         
         cursor.execute("""
             SELECT id, bot_name, webhook_url, is_active, 
-                   selected_mcp_servers, created_at, updated_at
+                   selected_mcp_servers, kb_id, created_at, updated_at
             FROM line_bot_configs 
             ORDER BY created_at DESC
         """)
@@ -733,15 +745,16 @@ def create_config():
         cursor.execute("""
             INSERT INTO line_bot_configs 
             (bot_name, channel_access_token, channel_secret, webhook_url, 
-             is_active, selected_mcp_servers)
-            VALUES (%s, %s, %s, %s, %s, %s)
+             is_active, selected_mcp_servers, kb_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (
             data['bot_name'],
             channel_access_token,
             channel_secret,
             webhook_url,
             data.get('is_active', True),
-            mcp_servers_json
+            mcp_servers_json,
+            data.get('kb_id')
         ))
         
         conn.commit()
@@ -797,6 +810,10 @@ def update_config(config_id):
         if 'selected_mcp_servers' in data:
             update_fields.append("selected_mcp_servers = %s")
             values.append(json.dumps(data['selected_mcp_servers']))
+            
+        if 'kb_id' in data:
+            update_fields.append("kb_id = %s")
+            values.append(data['kb_id'])
         
         if not update_fields:
             return jsonify({

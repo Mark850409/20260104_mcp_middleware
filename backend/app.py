@@ -9,6 +9,7 @@ from routes.chat import chat_bp
 from routes.mcp import mcp_bp
 from routes.line import line_bp
 from routes.prompts import prompts_bp
+from routes.rag import rag_bp
 import os
 
 # 建立 Flask 應用
@@ -22,6 +23,7 @@ app.register_blueprint(chat_bp)
 app.register_blueprint(mcp_bp)
 app.register_blueprint(line_bp)
 app.register_blueprint(prompts_bp)
+app.register_blueprint(rag_bp)
 
 
 @app.route('/api/health', methods=['GET'])

@@ -8,6 +8,7 @@ import json
 import os
 from services.ai_client import AIClientFactory
 from services.mcp_client import mcp_client
+from services.rag_service import rag_service
 
 # 建立 Blueprint
 chat_bp = Blueprint('chat', __name__, url_prefix='/api/chat')
@@ -39,6 +40,7 @@ def create_conversation():
         mcp_enabled = data.get('mcp_enabled', False)
         mcp_servers = data.get('mcp_servers', [])  # 新增:支援多選 MCP servers
         system_prompt_id = data.get('system_prompt_id', None)  # 新增:系統提示詞
+        kb_id = data.get('kb_id', None)  # 新增:知識庫 ID
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -47,9 +49,9 @@ def create_conversation():
         mcp_servers_json = json.dumps(mcp_servers) if mcp_servers else None
         
         cursor.execute("""
-            INSERT INTO conversations (title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (title, model_provider, model_name, mcp_enabled, mcp_servers_json, system_prompt_id))
+            INSERT INTO conversations (title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id, kb_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (title, model_provider, model_name, mcp_enabled, mcp_servers_json, system_prompt_id, kb_id))
         
         conversation_id = cursor.lastrowid
         conn.commit()
@@ -96,7 +98,7 @@ def list_conversations():
                  bot_mcp_servers = []
         
         cursor.execute("""
-            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id, source, line_user_id, created_at, updated_at
+            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id, kb_id, source, line_user_id, created_at, updated_at
             FROM conversations
             ORDER BY updated_at DESC
         """)
@@ -140,7 +142,7 @@ def get_conversation(conversation_id):
         
         # 取得對話資訊
         cursor.execute("""
-            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id, source, line_user_id, created_at, updated_at
+            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id, kb_id, source, line_user_id, created_at, updated_at
             FROM conversations
             WHERE id = %s
         """, (conversation_id,))
@@ -232,7 +234,7 @@ def send_message(conversation_id):
         
         # 取得對話設定
         cursor.execute("""
-            SELECT model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id
+            SELECT model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id, kb_id
             FROM conversations
             WHERE id = %s
         """, (conversation_id,))
@@ -262,6 +264,18 @@ def send_message(conversation_id):
         
         history = cursor.fetchall()
         messages = [{"role": msg["role"], "content": msg["content"]} for msg in history]
+        
+        # 如果有知識庫，進行 RAG 檢索
+        if conversation['kb_id']:
+            print(f"[RAG] 正在從知識庫 {conversation['kb_id']} 檢索相關內容...")
+            context_chunks = rag_service.query_kb(conversation['kb_id'], user_message)
+            if context_chunks:
+                context_str = "\n".join(context_chunks)
+                rag_prompt = f"以下是相關的參考資料，請根據這些資料來回答使用者的問題：\n\n{context_str}\n\n"
+                # 將檢索到的資料插入到最後一則訊息之前 (或是作為 system prompt)
+                # 這裡選擇插入到最後一則訊息前
+                messages.insert(-1, {"role": "system", "content": rag_prompt})
+                print(f"[RAG] 已加入 {len(context_chunks)} 條參考資料")
         
         # 如果有系統提示詞，插入到訊息開頭
         if conversation['system_prompt_id']:
@@ -468,6 +482,10 @@ def update_conversation(conversation_id):
         if 'system_prompt_id' in data:
             update_parts.append("system_prompt_id = %s")
             params.append(data['system_prompt_id'])
+            
+        if 'kb_id' in data:
+            update_parts.append("kb_id = %s")
+            params.append(data['kb_id'])
             
         if not update_parts:
             return jsonify({
