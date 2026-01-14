@@ -1,119 +1,121 @@
 <template>
-  <div class="line-bot-management">
-    <!-- 標題區 -->
-    <header class="page-header">
-      <h2>📱 LINE BOT 管理</h2>
-      <p class="subtitle">設定與管理 LINE Messaging API 整合</p>
-    </header>
+  <div>
+    <div class="line-bot-management">
+      <!-- 標題區 -->
+      <header class="page-header">
+        <h2>📱 LINE BOT 管理</h2>
+        <p class="subtitle">設定與管理 LINE Messaging API 整合</p>
+      </header>
 
-    <!-- 主要內容區 -->
-    <div class="container">
-      <!-- 使用說明 -->
-      <div class="card info-card">
-        <h3>📖 設定說明</h3>
-        <ol class="instructions">
-          <li>前往 <a href="https://developers.line.biz/" target="_blank">LINE Developers Console</a> 建立 Messaging API Channel</li>
-          <li>取得 <strong>Channel Access Token</strong> 和 <strong>Channel Secret</strong></li>
-          <li>在此頁面新增 LINE BOT 設定,填入上述資訊</li>
-          <li>複製產生的 <strong>Webhook URL</strong></li>
-          <li>回到 LINE Developers Console,在 Messaging API 設定中貼上 Webhook URL</li>
-          <li>啟用 Webhook 並關閉自動回覆訊息</li>
-          <li>開始使用您的 LINE BOT!</li>
-        </ol>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <h3>🤖 LINE BOT 設定</h3>
-          <button @click="showAddDialog = true" class="btn btn-primary">
-            ➕ 新增 LINE BOT
-          </button>
+      <!-- 主要內容區 -->
+      <div class="container">
+        <!-- 使用說明 -->
+        <div class="card info-card">
+          <h3>📖 設定說明</h3>
+          <ol class="instructions">
+            <li>前往 <a href="https://developers.line.biz/" target="_blank">LINE Developers Console</a> 建立 Messaging API Channel</li>
+            <li>取得 <strong>Channel Access Token</strong> 和 <strong>Channel Secret</strong></li>
+            <li>在此頁面新增 LINE BOT 設定,填入上述資訊</li>
+            <li>複製產生的 <strong>Webhook URL</strong></li>
+            <li>回到 LINE Developers Console,在 Messaging API 設定中貼上 Webhook URL</li>
+            <li>啟用 Webhook 並關閉自動回覆訊息</li>
+            <li>開始使用您的 LINE BOT!</li>
+          </ol>
         </div>
 
-        <div v-if="loading" class="loading">載入中...</div>
-        <div v-else-if="configs.length === 0" class="empty-state">
-          <div class="empty-icon">🤖</div>
-          <p>尚未設定任何 LINE BOT</p>
-          <p class="empty-hint">點擊上方按鈕開始設定您的第一個 LINE BOT</p>
-        </div>
-        <div v-else class="configs-list">
-          <div v-for="config in configs" :key="config.id" class="config-card">
-            <div class="config-header">
-              <div class="config-title">
-                <h4>{{ config.bot_name }}</h4>
-                <span :class="['status-badge', config.is_active ? 'active' : 'inactive']">
-                  {{ config.is_active ? '✓ 啟用中' : '⊗ 已停用' }}
-                </span>
-              </div>
-              <label class="switch">
-                <input 
-                  type="checkbox" 
-                  :checked="config.is_active" 
-                  @change="toggleConfig(config.id, $event.target.checked)"
-                />
-                <span class="slider"></span>
-              </label>
-            </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>🤖 LINE BOT 設定</h3>
+            <button @click="showAddDialog = true" class="btn btn-primary">
+              ➕ 新增 LINE BOT
+            </button>
+          </div>
 
-            <div class="config-info">
-              <div class="info-row">
-                <span class="label">Webhook URL:</span>
-                <div class="webhook-url">
-                  <code>{{ config.webhook_url }}</code>
-                  <button @click="copyWebhookUrl(config.webhook_url)" class="btn-copy" title="複製">
-                    📋
-                  </button>
+          <div v-if="loading" class="loading">載入中...</div>
+          <div v-else-if="configs.length === 0" class="empty-state">
+            <div class="empty-icon">🤖</div>
+            <p>尚未設定任何 LINE BOT</p>
+            <p class="empty-hint">點擊上方按鈕開始設定您的第一個 LINE BOT</p>
+          </div>
+          <div v-else class="configs-list">
+            <div v-for="config in configs" :key="config.id" class="config-card">
+              <div class="config-header">
+                <div class="config-title">
+                  <h4>{{ config.bot_name }}</h4>
+                  <span :class="['status-badge', config.is_active ? 'active' : 'inactive']">
+                    {{ config.is_active ? '✓ 啟用中' : '⊗ 已停用' }}
+                  </span>
                 </div>
+                <label class="switch">
+                  <input 
+                    type="checkbox" 
+                    :checked="config.is_active" 
+                    @change="toggleConfig(config.id, $event.target.checked)"
+                  />
+                  <span class="slider"></span>
+                </label>
               </div>
-              <div class="info-row">
-                <span class="label">MCP 工具:</span>
-                <div class="mcp-servers">
-                  <template v-if="getValidServers(config.selected_mcp_servers).length === 0">
-                    <span class="no-tools">未選擇工具</span>
-                  </template>
-                  <template v-else>
-                    <span class="tool-badge" v-for="server in getValidServers(config.selected_mcp_servers)" :key="server">
-                      {{ server }}
+
+              <div class="config-info">
+                <div class="info-row">
+                  <span class="label">Webhook URL:</span>
+                  <div class="webhook-url">
+                    <code>{{ config.webhook_url }}</code>
+                    <button @click="copyWebhookUrl(config.webhook_url)" class="btn-copy" title="複製">
+                      📋
+                    </button>
+                  </div>
+                </div>
+                <div class="info-row">
+                  <span class="label">MCP 工具:</span>
+                  <div class="mcp-servers">
+                    <template v-if="getValidServers(config.selected_mcp_servers).length === 0">
+                      <span class="no-tools">未選擇工具</span>
+                    </template>
+                    <template v-else>
+                      <span class="tool-badge" v-for="server in getValidServers(config.selected_mcp_servers)" :key="server">
+                        {{ server }}
+                      </span>
+                    </template>
+                  </div>
+                </div>
+                <div class="info-row">
+                  <span class="label">系統提示詞:</span>
+                  <div class="prompt-info">
+                    <span v-if="config.system_prompt_id" class="prompt-badge">
+                      {{ getPromptName(config.system_prompt_id) }}
                     </span>
-                  </template>
+                    <span v-else class="no-tools">無系統提示詞</span>
+                  </div>
+                </div>
+                <div class="info-row">
+                  <span class="label">知識庫 (RAG):</span>
+                  <div class="kb-info">
+                    <span v-if="config.kb_id" class="kb-badge">
+                      {{ getKbName(config.kb_id) }}
+                    </span>
+                    <span v-else class="no-tools">未選擇知識庫</span>
+                  </div>
+                </div>
+                <div class="info-row">
+                  <span class="label">建立時間:</span>
+                  <span>{{ formatDate(config.created_at) }}</span>
                 </div>
               </div>
-              <div class="info-row">
-                <span class="label">系統提示詞:</span>
-                <div class="prompt-info">
-                  <span v-if="config.system_prompt_id" class="prompt-badge">
-                    {{ getPromptName(config.system_prompt_id) }}
-                  </span>
-                  <span v-else class="no-tools">無系統提示詞</span>
-                </div>
-              </div>
-              <div class="info-row">
-                <span class="label">知識庫 (RAG):</span>
-                <div class="kb-info">
-                  <span v-if="config.kb_id" class="kb-badge">
-                    {{ getKbName(config.kb_id) }}
-                  </span>
-                  <span v-else class="no-tools">未選擇知識庫</span>
-                </div>
-              </div>
-              <div class="info-row">
-                <span class="label">建立時間:</span>
-                <span>{{ formatDate(config.created_at) }}</span>
-              </div>
-            </div>
 
-            <div class="config-actions">
-              <button @click="editConfig(config)" class="btn btn-sm btn-secondary">
-                ✏️ 編輯
-              </button>
-              <button @click="deleteConfig(config.id)" class="btn btn-sm btn-danger">
-                🗑️ 刪除
-              </button>
+              <div class="config-actions">
+                <button @click="editConfig(config)" class="btn btn-sm btn-secondary">
+                  ✏️ 編輯
+                </button>
+                <button @click="deleteConfig(config.id)" class="btn btn-sm btn-danger">
+                  🗑️ 刪除
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
+      </div>
     </div>
 
     <!-- 新增/編輯對話框 -->
@@ -906,7 +908,8 @@ input:checked + .slider:before {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -915,12 +918,13 @@ input:checked + .slider:before {
 
 .modal-content {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
+  padding: 2rem;
   width: 90%;
   max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 .modal-header {
@@ -928,12 +932,14 @@ input:checked + .slider:before {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid #f1f5f9;
 }
 
 .modal-header h3 {
-  color: #06C755;
   margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
 }
 
 .btn-close {
@@ -969,16 +975,18 @@ input:checked + .slider:before {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 600;
-  color: #333;
+  color: #334155;
 }
 
 .form-input {
   width: 100%;
   padding: 0.75rem;
-  border: 2px solid #e5e7eb;
-  border-radius: 6px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
   font-size: 1rem;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
+  background: white;
+  color: #1e293b;
 }
 
 .form-input:focus {

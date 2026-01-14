@@ -1,9 +1,22 @@
+# ============================================
+# MCP Server - 核心依賴
+# ============================================
+
+# Web 框架
 Flask==3.0.0
 Flask-CORS==4.0.0
+
+# MCP 相關
 fastmcp
 python-dotenv
+
+# ASGI Server
 starlette
 uvicorn
+
+# HTTP Client
 httpx
 httpx-sse
+
+# 資料庫
 pymysql

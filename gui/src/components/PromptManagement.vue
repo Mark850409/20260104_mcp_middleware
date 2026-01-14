@@ -1,57 +1,59 @@
 <template>
-  <div class="prompt-management">
-    <div class="header">
-      <h2>📝 系統提示詞管理</h2>
-      <button @click="showCreateDialog = true" class="btn-create">
-        ➕ 新增提示詞
-      </button>
-    </div>
-
-    <div class="prompts-list">
-      <div v-if="prompts.length === 0" class="empty-state">
-        尚無提示詞，點擊上方按鈕創建
+  <div>
+    <div class="prompt-management">
+      <div class="header">
+        <h2>📝 系統提示詞管理</h2>
+        <button @click="showCreateDialog = true" class="btn-create">
+          ➕ 新增提示詞
+        </button>
       </div>
 
-      <div
-        v-for="prompt in prompts"
-        :key="prompt.id"
-        class="prompt-card"
-        :class="{ 'is-default': prompt.is_default }"
-      >
-        <div class="prompt-header">
-          <div class="prompt-title">
-            <h3>{{ prompt.name }}</h3>
-            <span v-if="prompt.is_default" class="default-badge">⭐ 預設</span>
-          </div>
-          <div class="prompt-actions">
-            <button @click="editPrompt(prompt)" class="btn-edit" title="編輯">
-              ✏️
-            </button>
-            <button @click="deletePrompt(prompt)" class="btn-delete" title="刪除">
-              🗑️
-            </button>
-          </div>
+      <div class="prompts-list">
+        <div v-if="prompts.length === 0" class="empty-state">
+          尚無提示詞,點擊上方按鈕創建
         </div>
 
-        <p v-if="prompt.description" class="prompt-description">
-          {{ prompt.description }}
-        </p>
+        <div
+          v-for="prompt in prompts"
+          :key="prompt.id"
+          class="prompt-card"
+          :class="{ 'is-default': prompt.is_default }"
+        >
+          <div class="prompt-header">
+            <div class="prompt-title">
+              <h3>{{ prompt.name }}</h3>
+              <span v-if="prompt.is_default" class="default-badge">⭐ 預設</span>
+            </div>
+            <div class="prompt-actions">
+              <button @click="editPrompt(prompt)" class="btn-edit" title="編輯">
+                ✏️
+              </button>
+              <button @click="deletePrompt(prompt)" class="btn-delete" title="刪除">
+                🗑️
+              </button>
+            </div>
+          </div>
 
-        <div class="prompt-content">
-          {{ prompt.content }}
-        </div>
+          <p v-if="prompt.description" class="prompt-description">
+            {{ prompt.description }}
+          </p>
 
-        <div class="prompt-footer">
-          <span class="prompt-date">
-            {{ formatDate(prompt.created_at) }}
-          </span>
-          <button
-            v-if="!prompt.is_default"
-            @click="setAsDefault(prompt.id)"
-            class="btn-set-default"
-          >
-            設為預設
-          </button>
+          <div class="prompt-content">
+            {{ prompt.content }}
+          </div>
+
+          <div class="prompt-footer">
+            <span class="prompt-date">
+              {{ formatDate(prompt.created_at) }}
+            </span>
+            <button
+              v-if="!prompt.is_default"
+              @click="setAsDefault(prompt.id)"
+              class="btn-set-default"
+            >
+              設為預設
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -70,7 +72,7 @@
             <input
               v-model="formData.name"
               type="text"
-              placeholder="例如：專業助手"
+              placeholder="例如:專業助手"
               class="form-input"
             />
           </div>
@@ -331,15 +333,12 @@ export default {
   margin: 0;
   font-size: 1.8rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--color-primary-500);
 }
 
 .btn-create {
   padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-primary-600);
   color: white;
   border: none;
   border-radius: 12px;
@@ -350,6 +349,7 @@ export default {
 }
 
 .btn-create:hover {
+  background: var(--color-primary-700);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
 }
@@ -385,7 +385,7 @@ export default {
 
 .prompt-card.is-default {
   border-color: rgba(251, 191, 36, 0.5);
-  background: linear-gradient(135deg, rgba(254, 243, 199, 0.3), rgba(255, 255, 255, 0.95));
+  background: rgba(254, 243, 199, 0.3);
 }
 
 .prompt-header {
@@ -410,7 +410,7 @@ export default {
 
 .default-badge {
   padding: 0.25rem 0.75rem;
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  background: var(--color-orange-500);
   color: white;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -499,8 +499,8 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -511,7 +511,7 @@ export default {
   background: white;
   border-radius: 20px;
   width: 90%;
-  max-width: 600px;
+  max-width: 500px;
   max-height: 90vh;
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -572,6 +572,8 @@ export default {
   font-size: 1rem;
   font-family: inherit;
   transition: all 0.2s;
+  background: white;
+  color: #1e293b;
 }
 
 .form-input:focus,
@@ -628,13 +630,14 @@ export default {
 }
 
 .btn-save {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-primary-600);
   color: white;
   border: none;
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
 .btn-save:hover {
+  background: var(--color-primary-700);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
 }

@@ -1,5 +1,6 @@
 <template>
-  <div class="mcp-management">
+  <div>
+    <div class="mcp-management">
     <!-- 標題區 -->
     <header class="page-header">
       <h2>🛠️ MCP 工具管理</h2>
@@ -339,6 +340,7 @@
           </button>
         </div>
       </div>
+    </div>
     </div>
   </div>
 </template>
@@ -1303,17 +1305,19 @@ export default {
   display: block;
   font-weight: 600;
   margin-bottom: 0.5rem;
-  color: #555;
+  color: #334155;
 }
 
 .form-select,
 .form-input {
   width: 100%;
   padding: 0.75rem;
-  border: 2px solid #e5e7eb;
+  border: 2px solid #e2e8f0;
   border-radius: 8px;
   font-size: 1rem;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
+  background: white;
+  color: #1e293b;
 }
 
 .form-select:focus,
@@ -1500,21 +1504,23 @@ input:checked + .slider:before {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   z-index: 1000;
 }
 
 .modal-content {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
+  padding: 2rem;
   width: 90%;
-  max-width: 600px;
+  max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 .modal-header {

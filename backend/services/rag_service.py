@@ -260,15 +260,28 @@ class RAGService:
 
     def _get_local_embeddings(self, texts: List[str], model: str) -> np.ndarray:
         """使用本地 SentenceTransformers 產生 Embeddings"""
-        if not self._local_model:
-            from sentence_transformers import SentenceTransformer
-            # 如果使用者沒指定具體模型,使用預設的多語言模型
-            model_name = model if '/' in model or '-' in model else "paraphrase-multilingual-MiniLM-L12-v2"
-            print(f"[RAG] 正在載入本地模型: {model_name}")
-            self._local_model = SentenceTransformer(model_name)
-            
-        embeddings = self._local_model.encode(texts)
-        return np.array(embeddings).astype('float32')
+        try:
+            if not self._local_model:
+                from sentence_transformers import SentenceTransformer
+                # 如果使用者沒指定具體模型,使用預設的多語言模型
+                model_name = model if '/' in model or '-' in model else "paraphrase-multilingual-MiniLM-L12-v2"
+                print(f"[RAG] 正在載入本地模型: {model_name}")
+                self._local_model = SentenceTransformer(model_name)
+                
+            embeddings = self._local_model.encode(texts)
+            return np.array(embeddings).astype('float32')
+        except ImportError:
+            error_msg = (
+                "❌ 缺少 sentence-transformers 套件!\n\n"
+                "本地 Embedding 功能需要安裝 sentence-transformers。\n\n"
+                "安裝方式:\n"
+                "  pip install sentence-transformers==2.2.2\n\n"
+                "或者,您可以使用雲端 Embedding API:\n"
+                "  - OpenAI: 設定 embedding_provider='openai'\n"
+                "  - Google: 設定 embedding_provider='google'\n"
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
     def create_kb_index(self, kb_id: int, chunks: List[str], config: Dict[str, Any] = None):
         """為指定的知識庫建立 FAISS 索引,支援不同索引類型"""
