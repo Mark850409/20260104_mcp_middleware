@@ -1,8 +1,8 @@
 <template>
   <div class="kb-management">
     <div class="header">
-      <h2>📚 知識庫管理</h2>
-      <button class="btn-primary" @click="showCreateModal = true">➕ 建立知識庫</button>
+      <h2><i class="ri-book-2-line"></i> 知識庫管理</h2>
+      <button class="btn-primary" @click="showCreateModal = true"><i class="ri-add-line"></i> 建立知識庫</button>
     </div>
 
     <!-- 知識庫列表 -->
@@ -12,36 +12,36 @@
           <h3>{{ kb.name }}</h3>
           <p>{{ kb.description || '無描述' }}</p>
           <div class="kb-meta">
-            <span>📅 {{ formatDate(kb.created_at) }}</span>
+            <span><i class="ri-calendar-line"></i> {{ formatDate(kb.created_at) }}</span>
           </div>
         </div>
         <div class="kb-actions">
-          <button class="btn-secondary" @click="selectKB(kb)">📂 管理檔案</button>
-          <button class="btn-warning" @click="openEditModal(kb)">✏️ 編輯</button>
-          <button class="btn-danger" @click="deleteKB(kb.id)">🗑️ 刪除</button>
+          <button class="btn-secondary" @click="selectKB(kb)"><i class="ri-folder-open-line"></i> 管理檔案</button>
+          <button class="btn-warning" @click="openEditModal(kb)"><i class="ri-edit-line"></i> 編輯</button>
+          <button class="btn-danger" @click="deleteKB(kb.id)"><i class="ri-delete-bin-line"></i> 刪除</button>
         </div>
       </div>
     </div>
 
     <!-- 沒有知識庫的空狀態 -->
     <div v-else class="empty-state-kb">
-      <div class="empty-icon">📚</div>
+      <div class="empty-icon"><i class="ri-book-2-line"></i></div>
       <h3>尚未建立任何知識庫</h3>
       <p>建立您的第一個知識庫,開始管理文件和資料</p>
       <button class="btn-primary-large" @click="showCreateModal = true">
-        ➕ 建立第一個知識庫
+        <i class="ri-add-line"></i> 建立第一個知識庫
       </button>
       <div class="kb-features">
         <div class="feature-item">
-          <span class="feature-icon">📄</span>
+          <span class="feature-icon"><i class="ri-file-search-line"></i></span>
           <span>支援多種文件格式</span>
         </div>
         <div class="feature-item">
-          <span class="feature-icon">🔍</span>
+          <span class="feature-icon"><i class="ri-radar-line"></i></span>
           <span>智能向量化搜尋</span>
         </div>
         <div class="feature-item">
-          <span class="feature-icon">🤖</span>
+          <span class="feature-icon"><i class="ri-robot-2-line"></i></span>
           <span>AI 知識問答</span>
         </div>
       </div>
@@ -49,7 +49,7 @@
 
     <!-- 未選擇知識庫的提示 -->
     <div v-if="kbs.length > 0 && !selectedKB" class="select-kb-hint">
-      <div class="hint-icon">👆</div>
+      <div class="hint-icon"><i class="ri-hand-up-line"></i></div>
       <p>請選擇一個知識庫以管理檔案</p>
     </div>
 
@@ -57,9 +57,9 @@
     <div v-if="selectedKB" class="file-management mt-8">
       <div class="header">
         <div class="header-left">
-          <h3>📁 檔案管理: {{ selectedKB.name }}</h3>
+          <h3><i class="ri-folder-open-line"></i> 檔案管理: {{ selectedKB.name }}</h3>
           <button class="btn-config" @click="showConfigModal = true" title="配置向量化參數">
-            ⚙️ 向量化配置
+            <i class="ri-settings-3-line"></i> 向量化配置
           </button>
         </div>
         <div class="file-ops">
@@ -72,13 +72,15 @@
             multiple
           />
           <button class="btn-primary" @click="$refs.fileInput.click()" :disabled="uploading">
-            {{ uploading ? '上傳中...' : '📤 上傳檔案' }}
+            <i :class="uploading ? 'ri-loader-4-line ri-spin' : 'ri-upload-2-line'"></i>
+            {{ uploading ? '上傳中...' : '上傳檔案' }}
           </button>
           <button class="btn-success ml-2" @click="processFiles" :disabled="processing || selectedFiles.length === 0">
-            {{ processing ? '處理中...' : '⚙️ 開始向量化處理' }}
+            <i :class="processing ? 'ri-loader-4-line ri-spin' : 'ri-settings-line'"></i>
+            {{ processing ? '處理中...' : '開始向量化處理' }}
           </button>
           <button class="btn-danger-outline ml-2" @click="batchDeleteFiles" :disabled="selectedFiles.length === 0">
-            🗑️ 批次刪除
+            <i class="ri-delete-bin-line"></i> 批次刪除
           </button>
         </div>
       </div>
@@ -93,7 +95,7 @@
         @click="$refs.fileInput.click()"
       >
         <div class="drag-drop-content">
-          <div class="upload-icon">📁</div>
+          <div class="upload-icon"><i class="ri-folder-upload-line"></i></div>
           <h4>拖曳檔案到此處上傳</h4>
           <p>或點擊選擇檔案</p>
           <div class="supported-formats">
@@ -148,7 +150,9 @@
               </td>
               <td>{{ formatDate(file.created_at) }}</td>
               <td>
-                <button class="btn-icon-danger" @click="deleteSingleFile(file.id)" title="刪除檔案">🗑️</button>
+                <button class="btn-icon-danger" @click="deleteSingleFile(file.id)" title="刪除檔案">
+                  <i class="ri-delete-bin-line"></i>
+                </button>
               </td>
             </tr>
           </tbody>
@@ -160,13 +164,15 @@
     <div v-if="showCreateModal" class="modal-overlay">
       <div class="modal">
         <h3>建立新知識庫</h3>
-        <div class="form-group">
-          <label>名稱</label>
-          <input v-model="newKB.name" placeholder="輸入知識庫名稱" />
-        </div>
-        <div class="form-group">
-          <label>描述</label>
-          <textarea v-model="newKB.description" placeholder="輸入描述"></textarea>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>名稱</label>
+            <input v-model="newKB.name" placeholder="輸入知識庫名稱" />
+          </div>
+          <div class="form-group">
+            <label>描述</label>
+            <textarea v-model="newKB.description" placeholder="輸入描述"></textarea>
+          </div>
         </div>
         <div class="modal-actions">
           <button class="btn-secondary" @click="showCreateModal = false">取消</button>
@@ -179,13 +185,15 @@
     <div v-if="showEditModal" class="modal-overlay">
       <div class="modal">
         <h3>編輯知識庫</h3>
-        <div class="form-group">
-          <label>名稱</label>
-          <input v-model="editKBData.name" placeholder="輸入知識庫名稱" />
-        </div>
-        <div class="form-group">
-          <label>描述</label>
-          <textarea v-model="editKBData.description" placeholder="輸入描述"></textarea>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>名稱</label>
+            <input v-model="editKBData.name" placeholder="輸入知識庫名稱" />
+          </div>
+          <div class="form-group">
+            <label>描述</label>
+            <textarea v-model="editKBData.description" placeholder="輸入描述"></textarea>
+          </div>
         </div>
         <div class="modal-actions">
           <button class="btn-secondary" @click="showEditModal = false">取消</button>
@@ -199,12 +207,12 @@
   <div v-if="showConfigModal" class="modal-overlay" @click.self="showConfigModal = false">
     <div class="modal config-modal">
       <div class="modal-header">
-        <h2>⚙️ 向量化配置</h2>
+        <h2><i class="ri-settings-3-line"></i> 向量化配置</h2>
         <button class="modal-close" @click="showConfigModal = false">×</button>
       </div>
       <div class="modal-body">
         <div class="config-section">
-          <h3>📝 切分策略</h3>
+          <h3><i class="ri-layout-grid-line"></i> 切分策略</h3>
           <div class="form-group">
             <label>切分方法</label>
             <select v-model="kbConfig.chunk_strategy" class="form-input">
@@ -246,7 +254,7 @@
         </div>
 
         <div class="config-section">
-          <h3>🤖 Embedding 配置</h3>
+          <h3><i class="ri-openai-fill"></i> Embedding 配置</h3>
           <div class="form-row">
             <div class="form-group">
               <label>提供者</label>
@@ -271,7 +279,7 @@
         </div>
 
         <div class="config-section">
-          <h3>⚡ 索引配置</h3>
+          <h3><i class="ri-flashlight-line"></i> 索引配置</h3>
           <div class="form-group">
             <label>索引類型</label>
             <select v-model="kbConfig.index_type" class="form-input">
@@ -284,7 +292,7 @@
         </div>
 
         <div class="config-section">
-          <h3>🔍 檢索配置</h3>
+          <h3><i class="ri-search-line"></i> 檢索配置</h3>
           <div class="form-group">
             <label>返回數量 (Top K): {{ kbConfig.retrieval_top_k }}</label>
             <input 
@@ -300,7 +308,7 @@
         </div>
 
         <div class="config-preview">
-          <h4>📊 配置預覽</h4>
+          <h4><i class="ri-bar-chart-box-line"></i> 配置預覽</h4>
           <div class="preview-grid">
             <div class="preview-item">
               <span class="preview-label">切分策略:</span>
@@ -899,16 +907,97 @@ export default {
 
 .kb-actions {
   display: flex;
-  gap: 0.5rem;
+  justify-content: flex-end;
+  gap: 1rem;
   margin-top: 1.5rem;
 }
 
-.btn-primary { background: #4f46e5; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
-.btn-secondary { background: #f1f5f9; color: #475569; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
-.btn-warning { background: #fff7ed; color: #ea580c; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
-.btn-danger { background: #fee2e2; color: #ef4444; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
-.btn-danger-outline { background: white; color: #ef4444; border: 1px solid #fee2e2; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
-.btn-success { background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
+.btn-primary {
+  background: var(--color-primary-600);
+  color: white;
+  border: none;
+  padding: 0.6rem 1.25rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all var(--transition-base);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-700);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-secondary {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  padding: 0.6rem 1.25rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all var(--transition-base);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-background-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-warning {
+  background: #fff7ed;
+  color: #ea580c;
+  border: 1.5px solid #fdba74;
+  padding: 0.6rem 1.25rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all var(--transition-base);
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #ffedd5;
+  border-color: #f97316;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-danger {
+  background: #fee2e2;
+  color: #ef4444;
+  border: 1.5px solid #fecaca;
+  padding: 0.6rem 1.25rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all var(--transition-base);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-success {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.25rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all var(--transition-base);
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
 
 .btn-icon-danger {
   background: transparent;
@@ -975,11 +1064,25 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 }
 
 .modal {
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  width: 90%;
+  background: var(--color-surface);
+  padding: 0;
+  border-radius: var(--radius-xl);
+  width: 95%;
   max-width: 500px;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal h3 {
+  padding: 1.5rem 2rem;
+  margin: 0;
+  background: var(--color-background-secondary);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
 }
 
 .form-group {
@@ -990,16 +1093,16 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--color-text-secondary);
 }
 
 .form-group input, .form-group textarea {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
-  background: white;
-  color: #1e293b;
+  background: var(--color-background);
+  color: var(--color-text-primary);
 }
 
 .modal-actions {
@@ -1090,15 +1193,15 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 }
 
 .format-badge {
-  background: white;
-  color: #4f46e5;
+  background: var(--color-background-secondary);
+  color: var(--color-text-tertiary);
   padding: 0.5rem 1rem;
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 600;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e2e8f0;
-  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-base) ease;
 }
 
 .format-badge:hover {
@@ -1109,13 +1212,13 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 
 /* 知識庫空狀態樣式 */
 .empty-state-kb {
-  background: var(--color-blue-100);
-  border-radius: 20px;
+  background: var(--color-background-secondary);
+  border-radius: 24px;
   padding: 5rem 2rem;
   text-align: center;
   margin: 2rem 0;
-  border: 2px dashed #7dd3fc;
-  transition: all 0.3s ease;
+  border: 2px dashed var(--color-border);
+  transition: all var(--transition-base) ease;
 }
 
 .empty-state-kb:hover {
@@ -1155,15 +1258,16 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 }
 
 .feature-item {
-  background: var(--color-slate-800);
-  padding: 1.5rem;
-  border-radius: 12px;
+  background: var(--color-surface);
+  padding: 1.75rem;
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s ease;
+  gap: 1rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-base) ease;
 }
 
 .feature-item:hover {
@@ -1233,16 +1337,16 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 .btn-process {
   background: var(--color-green-600);
   color: white;
-  padding: 0.6rem 1.25rem;
+  padding: 0.75rem 1.75rem;
   border-radius: 10px;
   border: none;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
-  transition: all 0.2s ease;
+  gap: 0.75rem;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  transition: all var(--transition-base) ease;
 }
 
 .btn-process:hover:not(:disabled) {
@@ -1259,16 +1363,16 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 }
 
 .btn-config {
-  background: white;
-  border: 1px solid #e2e8f0;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  color: #64748b;
-  font-weight: 500;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  padding: 0.75rem 1.25rem;
+  border-radius: 10px;
+  color: var(--color-text-secondary);
+  font-weight: 600;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  transition: all 0.2s;
+  transition: all var(--transition-base);
   cursor: pointer;
 }
 
@@ -1283,18 +1387,24 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
   max-width: 800px;
   width: 95%;
   max-height: 90vh;
-  overflow-y: auto;
-  background: white;
+  overflow: hidden;
+  background: var(--color-surface);
   z-index: 10000;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--color-border);
 }
 
 .modal-actions {
   display: flex;
-  justify-content: center;
-  gap: 1rem;
-  padding: 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  justify-content: flex-end;
+  gap: 1.25rem;
+  padding: 1.5rem 2rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-background-secondary);
 }
 
 .modal-header {
@@ -1302,10 +1412,10 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--color-border);
   position: sticky;
   top: 0;
-  background: white;
+  background: var(--color-background-secondary);
   z-index: 10;
 }
 
@@ -1332,6 +1442,22 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 
 .modal-body {
   padding: 2rem;
+  overflow-y: auto;
+  flex: 1;
+  max-height: calc(90vh - 160px);
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 10px;
 }
 
 .config-section {
@@ -1361,13 +1487,13 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 
 .form-input {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid #e2e8f0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-border);
   border-radius: 10px;
-  background-color: white;
+  background-color: var(--color-background);
   font-size: 1rem;
-  color: #1e293b;
-  transition: all 0.2s ease;
+  color: var(--color-text-primary);
+  transition: all var(--transition-base) ease;
   cursor: pointer;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
@@ -1455,13 +1581,13 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 
 .preview-label {
   font-size: 0.85rem;
-  color: #718096;
+  color: var(--color-text-tertiary);
 }
 
 .preview-value {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--color-text-primary);
 }
 
 @media (max-width: 768px) {
@@ -1472,24 +1598,24 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 
 /* 拖曳上傳區域 */
 .drag-drop-area {
-  border: 3px dashed #cbd5e1;
-  border-radius: 12px;
-  padding: 3rem 2rem;
+  border: 3px dashed var(--color-border);
+  border-radius: 20px;
+  padding: 4rem 2rem;
   text-align: center;
-  background: #f8fafc;
+  background: var(--color-background-secondary);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--transition-base) ease;
   margin-bottom: 2rem;
 }
 
 .drag-drop-area:hover {
-  border-color: #6366f1;
-  background: #eef2ff;
+  border-color: var(--color-primary-500);
+  background: var(--color-surface-hover);
 }
 
 .drag-drop-area.drag-over {
-  border-color: #4f46e5;
-  background: #e0e7ff;
+  border-color: var(--color-primary-600);
+  background: var(--color-primary-100);
   transform: scale(1.02);
 }
 
@@ -1509,13 +1635,13 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 }
 
 .drag-drop-area h4 {
-  color: #1e293b;
+  color: var(--color-text-primary);
   font-size: 1.5rem;
   margin: 0 0 0.5rem 0;
 }
 
 .drag-drop-area p {
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 1rem;
   margin: 0 0 1.5rem 0;
 }
@@ -1544,11 +1670,12 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 
 /* 上傳進度 */
 .upload-progress {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 1.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 1.75rem;
   margin-bottom: 2rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .upload-progress h4 {
@@ -1560,11 +1687,11 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 .progress-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem;
-  background: #f8fafc;
-  border-radius: 8px;
-  margin-bottom: 0.75rem;
+  gap: 1.25rem;
+  padding: 1rem;
+  background: var(--color-background-secondary);
+  border-radius: 12px;
+  margin-bottom: 1rem;
 }
 
 .progress-item:last-child {
@@ -1626,6 +1753,81 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
   color: #6366f1;
 }
 
+/* ============================================
+   淺色主題覆蓋樣式
+   ============================================ */
+[data-theme="light"] .kb-card {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
 
+[data-theme="light"] .kb-card h3 {
+  color: var(--color-text-primary);
+}
+
+[data-theme="light"] .kb-card p {
+  color: var(--color-text-secondary);
+}
+
+[data-theme="light"] .file-list table {
+  background: var(--color-background);
+}
+
+[data-theme="light"] .file-list th {
+  background: var(--color-slate-100);
+  color: var(--color-text-primary);
+}
+
+[data-theme="light"] .file-list td {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-border);
+}
+
+[data-theme="light"] .file-list tr:hover {
+  background: var(--color-slate-50);
+}
+
+[data-theme="light"] .drag-drop-area {
+  background: var(--color-slate-50);
+  border-color: var(--color-border);
+}
+
+[data-theme="light"] .drag-drop-area h4,
+[data-theme="light"] .drag-drop-area p {
+  color: var(--color-text-primary);
+}
+
+[data-theme="light"] .modal {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="light"] .modal h2,
+[data-theme="light"] .modal h3,
+[data-theme="light"] .modal h4 {
+  color: var(--color-text-primary);
+}
+
+[data-theme="light"] .form-input {
+  background: var(--color-background);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+[data-theme="light"] .help-text {
+  color: var(--color-text-tertiary);
+}
+
+[data-theme="light"] .config-preview {
+  background: var(--color-slate-50);
+}
+
+[data-theme="light"] .preview-label {
+  color: var(--color-text-secondary);
+}
+
+[data-theme="light"] .preview-value {
+  color: var(--color-text-primary);
+}
 
 </style>

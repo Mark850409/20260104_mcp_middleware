@@ -2,9 +2,9 @@
   <div>
     <div class="prompt-management">
       <div class="header">
-        <h2>📝 系統提示詞管理</h2>
+        <h2><i class="ri-file-text-line"></i> 系統提示詞管理</h2>
         <button @click="showCreateDialog = true" class="btn-create">
-          ➕ 新增提示詞
+          <i class="ri-add-line"></i> 新增提示詞
         </button>
       </div>
 
@@ -22,14 +22,14 @@
           <div class="prompt-header">
             <div class="prompt-title">
               <h3>{{ prompt.name }}</h3>
-              <span v-if="prompt.is_default" class="default-badge">⭐ 預設</span>
+              <span v-if="prompt.is_default" class="default-badge"><i class="ri-star-fill"></i> 預設</span>
             </div>
             <div class="prompt-actions">
               <button @click="editPrompt(prompt)" class="btn-edit" title="編輯">
-                ✏️
+                <i class="ri-edit-line"></i>
               </button>
               <button @click="deletePrompt(prompt)" class="btn-delete" title="刪除">
-                🗑️
+                <i class="ri-delete-bin-line"></i>
               </button>
             </div>
           </div>
@@ -92,7 +92,7 @@
             <textarea
               v-model="formData.content"
               placeholder="輸入系統提示詞內容..."
-              rows="8"
+              rows="15"
               class="form-textarea"
             ></textarea>
           </div>
@@ -369,9 +369,9 @@ export default {
 }
 
 .prompt-card {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--color-background-secondary);
   backdrop-filter: blur(10px);
-  border: 2px solid rgba(102, 126, 234, 0.1);
+  border: 2px solid var(--color-border);
   border-radius: 16px;
   padding: 1.5rem;
   transition: all 0.3s;
@@ -405,7 +405,7 @@ export default {
   margin: 0;
   font-size: 1.2rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text-primary);
 }
 
 .default-badge {
@@ -425,12 +425,13 @@ export default {
 .btn-edit,
 .btn-delete {
   padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid #e2e8f0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   font-size: 1rem;
+  color: var(--color-text-primary);
 }
 
 .btn-edit:hover {
@@ -444,30 +445,31 @@ export default {
 }
 
 .prompt-description {
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   margin-bottom: 1rem;
   font-style: italic;
 }
 
 .prompt-content {
-  background: #f8fafc;
-  padding: 1rem;
-  border-radius: 8px;
-  color: #334155;
-  font-size: 0.9rem;
+  background: var(--color-background-secondary);
+  padding: 1.25rem;
+  border-radius: 12px;
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
   line-height: 1.6;
   max-height: 150px;
   overflow-y: auto;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--color-border);
 }
 
 .prompt-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 1rem;
-  border-top: 1px solid #e2e8f0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
 }
 
 .prompt-date {
@@ -476,20 +478,21 @@ export default {
 }
 
 .btn-set-default {
-  padding: 0.4rem 0.8rem;
-  background: white;
-  color: #667eea;
-  border: 1px solid #667eea;
-  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  background: var(--color-background);
+  color: var(--color-primary-600);
+  border: 1.5px solid var(--color-primary-600);
+  border-radius: 10px;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-base);
 }
 
 .btn-set-default:hover {
-  background: #667eea;
+  background: var(--color-primary-600);
   color: white;
+  transform: translateY(-1px);
 }
 
 /* Dialog Styles */
@@ -508,13 +511,16 @@ export default {
 }
 
 .dialog {
-  background: white;
-  border-radius: 20px;
-  width: 90%;
-  max-width: 500px;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  width: 95%;
+  max-width: 800px;
   max-height: 90vh;
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
 }
 
 .dialog-header {
@@ -522,14 +528,15 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-background-secondary);
 }
 
 .dialog-header h3 {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--color-text-primary);
 }
 
 .btn-close {
@@ -543,13 +550,27 @@ export default {
 }
 
 .btn-close:hover {
-  color: #1e293b;
+  color: var(--color-text-primary);
 }
 
 .dialog-body {
   padding: 2rem;
-  max-height: calc(90vh - 200px);
   overflow-y: auto;
+  flex: 1;
+  max-height: calc(90vh - 160px);
+}
+
+.dialog-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dialog-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dialog-body::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 10px;
 }
 
 .form-group {
@@ -560,20 +581,20 @@ export default {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--color-text-secondary);
 }
 
 .form-input,
 .form-textarea {
   width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #e2e8f0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   font-size: 1rem;
   font-family: inherit;
-  transition: all 0.2s;
-  background: white;
-  color: #1e293b;
+  transition: all var(--transition-base);
+  background: var(--color-background);
+  color: var(--color-text-primary);
 }
 
 .form-input:focus,
@@ -585,7 +606,7 @@ export default {
 
 .form-textarea {
   resize: vertical;
-  min-height: 150px;
+  min-height: 400px;
 }
 
 .checkbox-label {
@@ -596,17 +617,18 @@ export default {
 }
 
 .checkbox-label input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   cursor: pointer;
+  accent-color: var(--color-primary-600);
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
+  gap: 1.25rem;
   padding: 1.5rem 2rem;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--color-border);
 }
 
 .btn-cancel,
@@ -619,26 +641,28 @@ export default {
 }
 
 .btn-cancel {
-  background: white;
-  color: #64748b;
-  border: 2px solid #e2e8f0;
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  border: 1.5px solid var(--color-border);
 }
 
 .btn-cancel:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background: var(--color-background-hover);
+  border-color: var(--color-border-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-save {
   background: var(--color-primary-600);
   color: white;
   border: none;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-save:hover {
   background: var(--color-primary-700);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+  box-shadow: var(--shadow-md);
 }
 </style>

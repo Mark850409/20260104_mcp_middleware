@@ -1,17 +1,16 @@
 <template>
-  <div>
-    <div class="mcp-management">
+  <div class="mcp-management">
     <!-- 標題區 -->
     <header class="page-header">
-      <h2>🛠️ MCP 工具管理</h2>
+      <h2><i class="ri-settings-3-line"></i> MCP 工具管理</h2>
       <p class="subtitle">管理與操作 Model Context Protocol 工具</p>
       
       <div class="header-actions" style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
         <button @click="exportConfig" class="btn" style="background-color: #4b5563; color: white;">
-          📤 匯出配置
+          <i class="ri-download-2-line"></i> 匯出配置
         </button>
         <button @click="triggerImport" class="btn" style="background-color: #2563eb; color: white;">
-          📥 匯入配置
+          <i class="ri-upload-2-line"></i> 匯入配置
         </button>
         <input 
           type="file" 
@@ -32,7 +31,7 @@
           :class="['tab', { active: activeTab === tab.id }]"
           @click="activeTab = tab.id"
         >
-          {{ tab.icon }} {{ tab.label }}
+          <i :class="tab.icon"></i> {{ tab.label }}
         </button>
       </div>
     </div>
@@ -43,9 +42,9 @@
       <div v-if="activeTab === 'servers'" class="tab-content">
         <div class="card">
           <div class="card-header">
-            <h3>📡 MCP Servers</h3>
+            <h3><i class="ri-server-line"></i> MCP Servers</h3>
             <button @click="showAddServerDialog = true" class="btn btn-primary">
-              ➕ 新增 Server
+              <i class="ri-add-line"></i> 新增 Server
             </button>
           </div>
 
@@ -104,17 +103,18 @@
 
               <div class="server-actions">
                 <button @click="editServer(server)" class="btn btn-sm btn-secondary">
-                  ✏️ 編輯
+                  <i class="ri-edit-line"></i> 編輯
                 </button>
                 <button 
                   @click="testServer(server.name)" 
                   :disabled="testingServers[server.name]" 
                   class="btn btn-sm btn-info"
                 >
-                  {{ testingServers[server.name] ? '🔍 測試中...' : '🔍 測試' }}
+                  <i :class="testingServers[server.name] ? 'ri-loader-4-line ri-spin' : 'ri-search-line'"></i>
+                  {{ testingServers[server.name] ? '測試中...' : '測試' }}
                 </button>
                 <button @click="deleteServer(server.name)" class="btn btn-sm btn-danger">
-                  🗑️ 刪除
+                  <i class="ri-delete-bin-line"></i> 刪除
                 </button>
               </div>
             </div>
@@ -126,7 +126,7 @@
       <div v-if="activeTab === 'tools'" class="tab-content">
         <div class="card">
           <div class="card-header">
-            <h3>🛠️ MCP Tools</h3>
+            <h3><i class="ri-tools-line"></i> MCP Tools</h3>
             <select v-model="selectedServerForTools" class="form-select">
               <option value="">-- 選擇 Server --</option>
               <option v-for="server in enabledServers" :key="server.name" :value="server.name">
@@ -147,7 +147,7 @@
               <div class="tool-header">
                 <h4>{{ tool.name }}</h4>
                 <button @click="quickTestTool(tool)" class="btn btn-sm btn-success">
-                  ⚡ 快速測試
+                  <i class="ri-flashlight-line"></i> 快速測試
                 </button>
               </div>
               <p class="tool-description">{{ tool.description }}</p>
@@ -212,7 +212,8 @@
                 :disabled="!playgroundTool || executing"
                 class="btn btn-execute"
               >
-                {{ executing ? '執行中...' : '🚀 執行 Tool' }}
+                <i :class="executing ? 'ri-loader-4-line ri-spin' : 'ri-rocket-line'"></i>
+                {{ executing ? '執行中...' : '執行 Tool' }}
               </button>
             </div>
 
@@ -227,7 +228,7 @@
 
           <!-- 執行歷史 -->
           <div class="playground-sidebar card">
-            <h4>📜 執行歷史</h4>
+            <h4><i class="ri-history-line"></i> 執行歷史</h4>
             <div v-if="executionHistory.length === 0" class="empty-state-small">
               尚無執行記錄
             </div>
@@ -250,7 +251,6 @@
           </div>
         </div>
       </div>
-    </div>
 
     <!-- 新增/編輯 Server 對話框 -->
     <div v-if="showAddServerDialog || editingServer" class="modal-overlay" @click.self="closeServerDialog">
@@ -316,7 +316,7 @@
                   <input v-model="serverForm.args[index]" class="form-input" placeholder="檔案路徑或參數" />
                   <button @click="removeArg(index)" class="btn btn-sm btn-danger">✕</button>
                 </div>
-                <button @click="addArg" class="btn btn-sm btn-secondary">➕ 新增參數</button>
+                <button @click="addArg" class="btn btn-sm btn-secondary"><i class="ri-add-line"></i> 新增參數</button>
               </div>
             </div>
           
@@ -329,7 +329,7 @@
                 <input v-model="serverForm.env[key]" class="form-input" placeholder="VALUE" />
                 <button @click="removeEnv(key)" class="btn btn-sm btn-danger">✕</button>
               </div>
-              <button @click="addEnv" class="btn btn-sm btn-secondary">➕ 新增環境變數</button>
+              <button @click="addEnv" class="btn btn-sm btn-secondary"><i class="ri-add-line"></i> 新增環境變數</button>
             </div>
           </div>
         </div>
@@ -341,8 +341,8 @@
         </div>
       </div>
     </div>
-    </div>
   </div>
+</div>
 </template>
 
 <script>
@@ -358,9 +358,9 @@ export default {
 
     // Tab 管理
     const tabs = [
-      { id: 'servers', label: 'Servers', icon: '📡' },
-      { id: 'tools', label: 'Tools', icon: '🛠️' },
-      { id: 'playground', label: 'Playground', icon: '⚡' }
+      { id: 'servers', label: 'Servers', icon: 'ri-server-line' },
+      { id: 'tools', label: 'Tools', icon: 'ri-tools-line' },
+      { id: 'playground', label: 'Playground', icon: 'ri-flashlight-line' }
     ]
     const activeTab = ref('servers')
 
@@ -989,31 +989,31 @@ export default {
 .mcp-management {
   height: 100%;
   overflow-y: auto;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-background);
 }
 
 .page-header {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--color-background-secondary);
   padding: 2rem;
   text-align: center;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .page-header h2 {
   font-size: 2rem;
-  color: #667eea;
+  color: var(--color-primary-600);
   margin-bottom: 0.5rem;
 }
 
 .subtitle {
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 1rem;
 }
 
 .tabs-container {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--color-background-secondary);
   padding: 0 2rem;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .tabs {
@@ -1027,7 +1027,7 @@ export default {
   padding: 1rem 2rem;
   border: none;
   background: transparent;
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -1060,24 +1060,26 @@ export default {
 }
 
 .card {
-  background: white;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #f0f0f0;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .card-header h3 {
-  color: #667eea;
-  font-size: 1.3rem;
+  color: var(--color-primary-600);
+  font-size: 1.4rem;
   margin: 0;
 }
 
@@ -1103,15 +1105,17 @@ export default {
 }
 
 .server-card {
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   padding: 1.5rem;
-  transition: all 0.3s;
+  background: var(--color-background);
+  transition: all var(--transition-base);
 }
 
 .server-card:hover {
-  border-color: #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+  border-color: var(--color-primary-400);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 .server-header {
@@ -1122,9 +1126,10 @@ export default {
 }
 
 .server-header h4 {
-  color: #333;
+  color: var(--color-text-primary);
   margin: 0 0 0.5rem 0;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
+  font-weight: 700;
 }
 
 .server-description {
@@ -1146,16 +1151,18 @@ export default {
 
 .info-row .label {
   font-weight: 600;
-  color: #555;
-  min-width: 70px;
+  color: var(--color-text-secondary);
+  min-width: 80px;
 }
 
 .info-row code {
-  background: #f3f4f6;
-  padding: 0.2rem 0.5rem;
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  padding: 0.3rem 0.6rem;
   border-radius: 4px;
   font-size: 0.85rem;
   flex: 1;
+  border: 1px solid var(--color-border);
 }
 
 .url-text {
@@ -1164,10 +1171,11 @@ export default {
 
 .server-actions {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
+  gap: 1rem;
+  margin-top: 1.5rem;
   padding-top: 1rem;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--color-border);
+  flex-wrap: wrap;
 }
 
 /* Tools List */
@@ -1311,13 +1319,13 @@ export default {
 .form-select,
 .form-input {
   width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
   font-size: 1rem;
-  transition: all 0.2s;
-  background: white;
-  color: #1e293b;
+  transition: all var(--transition-base);
+  background: var(--color-background);
+  color: var(--color-text-primary);
 }
 
 .form-select:focus,
@@ -1373,13 +1381,17 @@ export default {
 
 /* Buttons */
 .btn {
-  padding: 0.6rem 1.5rem;
+  padding: 0.75rem 1.75rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all var(--transition-base);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .btn:disabled {
@@ -1393,22 +1405,26 @@ export default {
 }
 
 .btn-primary {
-  background: #667eea;
+  background: var(--color-primary-600);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #5568d3;
-  transform: translateY(-1px);
+  background: var(--color-primary-700);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .btn-secondary {
-  background: #6b7280;
-  color: white;
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #4b5563;
+  background: var(--color-background-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-success {
@@ -1418,6 +1434,8 @@ export default {
 
 .btn-success:hover:not(:disabled) {
   background: #059669;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .btn-info {
@@ -1513,22 +1531,26 @@ input:checked + .slider:before {
 }
 
 .modal-content {
-  background: white;
-  border-radius: 16px;
-  padding: 2rem;
-  width: 90%;
-  max-width: 500px;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  padding: 0;
+  width: 95%;
+  max-width: 600px;
   max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem;
-  border-bottom: 2px solid #f0f0f0;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-background-secondary);
 }
 
 .modal-header h3 {
@@ -1552,15 +1574,32 @@ input:checked + .slider:before {
 }
 
 .modal-body {
-  padding: 1.5rem;
+  padding: 2rem;
+  overflow-y: auto;
+  flex: 1;
+  max-height: calc(90vh - 160px);
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 10px;
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 1.5rem;
-  border-top: 2px solid #f0f0f0;
+  gap: 1.25rem;
+  padding: 1.5rem 2rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-background-secondary);
 }
 
 .args-input, .env-input {
@@ -1571,7 +1610,7 @@ input:checked + .slider:before {
 
 .arg-row, .env-row {
   display: flex;
-  gap: 0.5rem;
+  gap: 1rem;
   align-items: center;
 }
 
@@ -1625,5 +1664,22 @@ input:checked + .slider:before {
   font-size: 0.85rem;
   color: #666;
   font-style: italic;
+}
+/* 淺色模式背景覆蓋 */
+[data-theme="light"] .mcp-management {
+  background: var(--color-background);
+}
+
+[data-theme="light"] .page-header {
+  background: var(--color-background);
+}
+
+[data-theme="light"] .card {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="light"] .empty-state {
+  color: var(--color-text-tertiary);
 }
 </style>

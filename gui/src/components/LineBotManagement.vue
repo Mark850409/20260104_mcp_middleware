@@ -1,9 +1,8 @@
 <template>
-  <div>
-    <div class="line-bot-management">
-      <!-- 標題區 -->
+  <div class="line-bot-management">
+    <!-- 標題區 -->
       <header class="page-header">
-        <h2>📱 LINE BOT 管理</h2>
+        <h2><i class="ri-line-fill"></i> LINE BOT 管理</h2>
         <p class="subtitle">設定與管理 LINE Messaging API 整合</p>
       </header>
 
@@ -25,15 +24,15 @@
 
         <div class="card">
           <div class="card-header">
-            <h3>🤖 LINE BOT 設定</h3>
+            <h3><i class="ri-robot-line"></i> LINE BOT 設定</h3>
             <button @click="showAddDialog = true" class="btn btn-primary">
-              ➕ 新增 LINE BOT
+              <i class="ri-add-line"></i> 新增 LINE BOT
             </button>
           </div>
 
           <div v-if="loading" class="loading">載入中...</div>
           <div v-else-if="configs.length === 0" class="empty-state">
-            <div class="empty-icon">🤖</div>
+            <div class="empty-icon"><i class="ri-robot-line"></i></div>
             <p>尚未設定任何 LINE BOT</p>
             <p class="empty-hint">點擊上方按鈕開始設定您的第一個 LINE BOT</p>
           </div>
@@ -43,7 +42,8 @@
                 <div class="config-title">
                   <h4>{{ config.bot_name }}</h4>
                   <span :class="['status-badge', config.is_active ? 'active' : 'inactive']">
-                    {{ config.is_active ? '✓ 啟用中' : '⊗ 已停用' }}
+                    <i :class="config.is_active ? 'ri-check-line' : 'ri-close-circle-line'"></i>
+                    {{ config.is_active ? '啟用中' : '已停用' }}
                   </span>
                 </div>
                 <label class="switch">
@@ -62,7 +62,7 @@
                   <div class="webhook-url">
                     <code>{{ config.webhook_url }}</code>
                     <button @click="copyWebhookUrl(config.webhook_url)" class="btn-copy" title="複製">
-                      📋
+                      <i class="ri-file-copy-line"></i>
                     </button>
                   </div>
                 </div>
@@ -105,10 +105,10 @@
 
               <div class="config-actions">
                 <button @click="editConfig(config)" class="btn btn-sm btn-secondary">
-                  ✏️ 編輯
+                  <i class="ri-edit-line"></i> 編輯
                 </button>
                 <button @click="deleteConfig(config.id)" class="btn btn-sm btn-danger">
-                  🗑️ 刪除
+                  <i class="ri-delete-bin-line"></i> 刪除
                 </button>
               </div>
             </div>
@@ -116,7 +116,6 @@
         </div>
 
       </div>
-    </div>
 
     <!-- 新增/編輯對話框 -->
     <div v-if="showAddDialog || editingConfig" class="modal-overlay" @click.self="closeDialog">
@@ -139,7 +138,7 @@
             <label>選擇 MCP 工具</label>
             <div class="mcp-tools-grid">
               <div v-if="availableServers.length === 0" class="no-servers">
-                <div class="no-servers-icon">🔧</div>
+                <div class="no-servers-icon"><i class="ri-tools-line"></i></div>
                 <p>尚無可用的 MCP Server</p>
                 <p class="hint">請先在 MCP 管理頁面添加 Server</p>
               </div>
@@ -157,7 +156,7 @@
                   class="tool-checkbox"
                 />
                 <div class="tool-card-content">
-                  <div class="tool-icon">🛠️</div>
+                  <div class="tool-icon"><i class="ri-tools-line"></i></div>
                   <div class="tool-info">
                     <div class="tool-name">{{ server.name }}</div>
                     <div class="tool-desc">{{ server.description || '無描述' }}</div>
@@ -575,14 +574,14 @@ export default {
 .line-bot-management {
   height: 100%;
   overflow-y: auto;
-  background: linear-gradient(135deg, #06C755 0%, #00B900 100%);
+  background: var(--color-background);
 }
 
 .page-header {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--color-background-secondary);
   padding: 2rem;
   text-align: center;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .page-header h2 {
@@ -592,7 +591,7 @@ export default {
 }
 
 .subtitle {
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 1rem;
 }
 
@@ -603,20 +602,21 @@ export default {
 }
 
 .card {
-  background: white;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem;
+  border: 1px solid var(--color-border);
   margin-bottom: 2rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #f0f0f0;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .card-header h3 {
@@ -649,15 +649,17 @@ export default {
 }
 
 .config-card {
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 1.5rem;
-  transition: all 0.3s;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.75rem;
+  background: var(--color-background);
+  transition: all var(--transition-base);
 }
 
 .config-card:hover {
   border-color: #06C755;
-  box-shadow: 0 4px 12px rgba(6, 199, 85, 0.2);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 .config-header {
@@ -674,9 +676,10 @@ export default {
 }
 
 .config-title h4 {
-  color: #333;
+  color: var(--color-text-primary);
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
+  font-weight: 700;
 }
 
 .status-badge {
@@ -711,7 +714,7 @@ export default {
 
 .info-row .label {
   font-weight: 600;
-  color: #666;
+  color: var(--color-text-secondary);
   min-width: 120px;
 }
 
@@ -723,12 +726,14 @@ export default {
 }
 
 .webhook-url code {
-  background: #f5f5f5;
-  padding: 0.5rem;
-  border-radius: 4px;
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
   font-size: 0.85rem;
   flex: 1;
   overflow-x: auto;
+  border: 1px solid var(--color-border);
 }
 
 .btn-copy {
@@ -782,9 +787,9 @@ export default {
 
 .config-actions {
   display: flex;
-  gap: 0.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid #f0f0f0;
+  gap: 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
 }
 
 /* 開關 */
@@ -835,13 +840,17 @@ input:checked + .slider:before {
 
 /* 按鈕 */
 .btn {
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 1.75rem;
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-base);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .btn-primary {
@@ -849,17 +858,22 @@ input:checked + .slider:before {
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: #00B900;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .btn-secondary {
-  background: #6c757d;
-  color: white;
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
 }
 
-.btn-secondary:hover {
-  background: #5a6268;
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-background-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-danger {
@@ -885,6 +899,7 @@ input:checked + .slider:before {
 .instructions {
   padding-left: 1.5rem;
   line-height: 1.8;
+  color: var(--color-text-secondary);
 }
 
 .instructions li {
@@ -917,29 +932,33 @@ input:checked + .slider:before {
 }
 
 .modal-content {
-  background: white;
-  border-radius: 16px;
-  padding: 2rem;
-  width: 90%;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  padding: 0;
+  width: 95%;
   max-width: 600px;
   max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem;
-  border-bottom: 2px solid #f1f5f9;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-background-secondary);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--color-text-primary);
 }
 
 .btn-close {
@@ -956,15 +975,31 @@ input:checked + .slider:before {
 }
 
 .modal-body {
-  padding: 1.5rem;
+  padding: 2rem;
+  overflow-y: auto;
+  flex: 1;
+  max-height: calc(90vh - 160px);
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 10px;
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 1.5rem;
-  border-top: 2px solid #f0f0f0;
+  gap: 1.25rem;
+  padding: 1.5rem 2rem;
+  border-top: 1px solid var(--color-border);
 }
 
 .form-group {
@@ -975,18 +1010,18 @@ input:checked + .slider:before {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--color-text-secondary);
 }
 
 .form-input {
   width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
   font-size: 1rem;
-  transition: all 0.2s;
-  background: white;
-  color: #1e293b;
+  transition: all var(--transition-base);
+  background: var(--color-background);
+  color: var(--color-text-primary);
 }
 
 .form-input:focus {
@@ -1007,25 +1042,25 @@ input:checked + .slider:before {
 
 .tool-card {
   position: relative;
-  border: 2px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  background: white;
+  transition: all var(--transition-base);
+  background: var(--color-background);
   display: block;
 }
 
 .tool-card:hover {
   border-color: #06C755;
-  box-shadow: 0 4px 12px rgba(6, 199, 85, 0.15);
+  box-shadow: var(--shadow-sm);
   transform: translateY(-2px);
 }
 
 .tool-card.selected {
   border-color: #06C755;
-  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
-  box-shadow: 0 4px 12px rgba(6, 199, 85, 0.2);
+  background: rgba(6, 199, 85, 0.05);
+  box-shadow: 0 4px 12px rgba(6, 199, 85, 0.15);
 }
 
 .tool-checkbox {
@@ -1048,7 +1083,8 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f0fdf4 0%, #e8f5e9 100%);
+  background: var(--color-background-secondary);
+  color: #06C755;
   border-radius: 12px;
 }
 
@@ -1059,13 +1095,13 @@ input:checked + .slider:before {
 
 .tool-name {
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-primary);
   font-size: 1rem;
   margin-bottom: 0.25rem;
 }
 
 .tool-desc {
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
   line-height: 1.4;
   overflow: hidden;
@@ -1102,4 +1138,21 @@ input:checked + .slider:before {
   color: #aaa;
 }
 
+/* 淺色模式背景覆蓋 */
+[data-theme="light"] .line-bot-management {
+  background: var(--color-background);
+}
+
+[data-theme="light"] .page-header {
+  background: var(--color-background);
+}
+
+[data-theme="light"] .empty-state {
+  color: var(--color-text-tertiary);
+}
+
+[data-theme="light"] .card {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
 </style>

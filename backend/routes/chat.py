@@ -35,23 +35,65 @@ def create_conversation():
     try:
         data = request.get_json()
         title = data.get('title', '新對話')
-        model_provider = data.get('model_provider', 'openai')
-        model_name = data.get('model_name', 'gpt-4')
-        mcp_enabled = data.get('mcp_enabled', False)
-        mcp_servers = data.get('mcp_servers', [])  # 新增:支援多選 MCP servers
-        system_prompt_id = data.get('system_prompt_id', None)  # 新增:系統提示詞
-        kb_id = data.get('kb_id', None)  # 新增:知識庫 ID
+        agent_id = data.get('agent_id', None)  # 新增: Agent ID
         
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        
+        # 如果指定了 Agent,載入 Agent 配置
+        if agent_id:
+            cursor.execute("""
+                SELECT model_provider, model_name, system_prompt_id
+                FROM agents
+                WHERE id = %s AND is_active = TRUE
+            """, (agent_id,))
+            agent = cursor.fetchone()
+            
+            if not agent:
+                return jsonify({
+                    "success": False,
+                    "error": "Agent 不存在或未啟用"
+                }), 404
+            
+            # 使用 Agent 的配置
+            model_provider = agent['model_provider']
+            model_name = agent['model_name']
+            system_prompt_id = agent['system_prompt_id']
+            
+            # 載入 Agent 的知識庫 (取第一個)
+            cursor.execute("""
+                SELECT kb_id FROM agent_knowledge_bases
+                WHERE agent_id = %s
+                ORDER BY priority ASC
+                LIMIT 1
+            """, (agent_id,))
+            kb_row = cursor.fetchone()
+            kb_id = kb_row['kb_id'] if kb_row else None
+            
+            # 載入 Agent 的 MCP 工具
+            cursor.execute("""
+                SELECT mcp_server_name FROM agent_mcp_tools
+                WHERE agent_id = %s AND is_enabled = TRUE
+            """, (agent_id,))
+            mcp_tools = cursor.fetchall()
+            mcp_servers = [tool['mcp_server_name'] for tool in mcp_tools]
+            mcp_enabled = len(mcp_servers) > 0
+        else:
+            # 使用自訂配置
+            model_provider = data.get('model_provider', 'openai')
+            model_name = data.get('model_name', 'gpt-4')
+            mcp_enabled = data.get('mcp_enabled', False)
+            mcp_servers = data.get('mcp_servers', [])
+            system_prompt_id = data.get('system_prompt_id', None)
+            kb_id = data.get('kb_id', None)
         
         # 將 mcp_servers 轉換為 JSON 字串
         mcp_servers_json = json.dumps(mcp_servers) if mcp_servers else None
         
         cursor.execute("""
-            INSERT INTO conversations (title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id, kb_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (title, model_provider, model_name, mcp_enabled, mcp_servers_json, system_prompt_id, kb_id))
+            INSERT INTO conversations (title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id, kb_id, agent_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (title, model_provider, model_name, mcp_enabled, mcp_servers_json, system_prompt_id, kb_id, agent_id))
         
         conversation_id = cursor.lastrowid
         conn.commit()
@@ -108,9 +150,14 @@ def list_conversations():
             bot_kb_id = bot_config.get('kb_id')
         
         cursor.execute("""
-            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id, kb_id, source, line_user_id, created_at, updated_at
-            FROM conversations
-            ORDER BY updated_at DESC
+            SELECT 
+                c.id, c.title, c.model_provider, c.model_name, c.mcp_enabled, c.mcp_servers, 
+                c.system_prompt_id, c.kb_id, c.source, c.line_user_id, c.agent_id,
+                c.created_at, c.updated_at,
+                a.name as agent_name, a.avatar_url as agent_avatar
+            FROM conversations c
+            LEFT JOIN agents a ON c.agent_id = a.id
+            ORDER BY c.updated_at DESC
         """)
         
         conversations = cursor.fetchall()
@@ -154,9 +201,14 @@ def get_conversation(conversation_id):
         
         # 取得對話資訊
         cursor.execute("""
-            SELECT id, title, model_provider, model_name, mcp_enabled, mcp_servers, system_prompt_id, kb_id, source, line_user_id, created_at, updated_at
-            FROM conversations
-            WHERE id = %s
+            SELECT 
+                c.id, c.title, c.model_provider, c.model_name, c.mcp_enabled, c.mcp_servers, 
+                c.system_prompt_id, c.kb_id, c.source, c.line_user_id, c.agent_id,
+                c.created_at, c.updated_at,
+                a.name as agent_name, a.avatar_url as agent_avatar
+            FROM conversations c
+            LEFT JOIN agents a ON c.agent_id = a.id
+            WHERE c.id = %s
         """, (conversation_id,))
         
         conversation = cursor.fetchone()

@@ -28,6 +28,14 @@
             <i class="ri-chat-3-line"></i>
             <span v-if="!sidebarCollapsed">AI Chatbot</span>
           </button>
+          <button
+            :class="['nav-item', { active: currentView === 'agents' }]"
+            @click="currentView = 'agents'"
+            :title="sidebarCollapsed ? 'Agent 管理' : ''"
+          >
+            <i class="ri-robot-2-line"></i>
+            <span v-if="!sidebarCollapsed">Agent 管理</span>
+          </button>
         </div>
 
         <!-- 工具與整合 -->
@@ -87,11 +95,25 @@
       <header class="topbar">
         <div class="topbar-left">
           <div class="breadcrumb">
-            <i :class="getCurrentViewIcon()"></i>
-            <span class="breadcrumb-text">{{ getCurrentViewName() }}</span>
+            <span class="breadcrumb-item">
+              <i class="ri-home-4-line"></i>
+              <span>首頁</span>
+            </span>
+            <span class="breadcrumb-separator">/</span>
+            <span class="breadcrumb-item" v-if="getCurrentViewCategory()">
+              <span>{{ getCurrentViewCategory() }}</span>
+            </span>
+            <span class="breadcrumb-separator" v-if="getCurrentViewCategory()">/</span>
+            <span class="breadcrumb-item active">
+              <i :class="getCurrentViewIcon()"></i>
+              <span>{{ getCurrentViewName() }}</span>
+            </span>
           </div>
         </div>
         <div class="topbar-right">
+          <button class="btn-icon" @click="toggleTheme" :title="theme === 'dark' ? '切換到淺色模式' : '切換到深色模式'">
+            <i :class="theme === 'dark' ? 'ri-sun-line' : 'ri-moon-line'"></i>
+          </button>
           <button class="btn-icon" title="通知">
             <i class="ri-notification-3-line"></i>
           </button>
@@ -128,6 +150,11 @@
               <PromptManagement />
             </div>
 
+            <!-- Agent 管理頁面 -->
+            <div v-else-if="currentView === 'agents'" key="agents" class="view-container">
+              <AgentManagement />
+            </div>
+
             <!-- 知識庫管理頁面 -->
             <div v-else-if="currentView === 'rag'" key="rag" class="view-container">
               <KnowledgeBaseManagement />
@@ -140,12 +167,14 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useTheme } from './composables/useTheme'
 import MCPManagement from './components/MCPManagement.vue'
 import Chatbot from './components/Chatbot.vue'
 import LineBotManagement from './components/LineBotManagement.vue'
 import PromptManagement from './components/PromptManagement.vue'
 import KnowledgeBaseManagement from './components/KnowledgeBaseManagement.vue'
+import AgentManagement from './components/AgentManagement.vue'
 
 export default {
   name: 'App',
@@ -154,18 +183,28 @@ export default {
     Chatbot,
     LineBotManagement,
     PromptManagement,
-    KnowledgeBaseManagement
+    KnowledgeBaseManagement,
+    AgentManagement
   },
   setup() {
     const currentView = ref('chatbot')
     const sidebarCollapsed = ref(false)
+    
+    // 主題管理
+    const { theme, initTheme, toggleTheme } = useTheme()
+    
+    // 初始化主題
+    onMounted(() => {
+      initTheme()
+    })
 
     const viewConfig = {
-      chatbot: { name: 'AI Chatbot', icon: 'ri-chat-3-line' },
-      mcp: { name: 'MCP 工具管理', icon: 'ri-tools-line' },
-      linebot: { name: 'LINE BOT', icon: 'ri-line-fill' },
-      prompts: { name: '提示詞管理', icon: 'ri-file-text-line' },
-      rag: { name: '知識庫管理', icon: 'ri-book-2-line' }
+      chatbot: { name: 'AI Chatbot', icon: 'ri-chat-3-line', category: 'AI 對話系統' },
+      agents: { name: 'Agent 管理', icon: 'ri-robot-2-line', category: 'AI 對話系統' },
+      mcp: { name: 'MCP 工具管理', icon: 'ri-tools-line', category: '工具與整合' },
+      linebot: { name: 'LINE BOT', icon: 'ri-line-fill', category: '工具與整合' },
+      prompts: { name: '提示詞管理', icon: 'ri-file-text-line', category: '內容管理' },
+      rag: { name: '知識庫管理', icon: 'ri-book-2-line', category: '內容管理' }
     }
 
     const getCurrentViewName = () => {
@@ -176,11 +215,18 @@ export default {
       return viewConfig[currentView.value]?.icon || 'ri-home-line'
     }
 
+    const getCurrentViewCategory = () => {
+      return viewConfig[currentView.value]?.category || ''
+    }
+
     return {
       currentView,
       sidebarCollapsed,
       getCurrentViewName,
-      getCurrentViewIcon
+      getCurrentViewIcon,
+      getCurrentViewCategory,
+      theme,
+      toggleTheme
     }
   }
 }
@@ -300,7 +346,7 @@ export default {
   margin-bottom: var(--spacing-1);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--color-slate-300);
+  color: var(--color-text-secondary);
   background: transparent;
   border: none;
   border-radius: var(--radius-base);
@@ -316,8 +362,8 @@ export default {
 }
 
 .nav-item:hover {
-  background: var(--color-slate-700);
-  color: #ffffff;
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
 }
 
 .nav-item.active {
@@ -392,14 +438,33 @@ export default {
   display: flex;
   align-items: center;
   gap: var(--spacing-2);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: #ffffff;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }
 
-.breadcrumb i {
-  font-size: 1.5rem;
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+.breadcrumb-item i {
+  font-size: 1.1rem;
+}
+
+.breadcrumb-item.active {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.breadcrumb-item.active i {
   color: var(--color-primary-500);
+}
+
+.breadcrumb-separator {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  margin: 0 var(--spacing-1);
 }
 
 .topbar-right {
@@ -497,5 +562,51 @@ export default {
   .content {
     padding: var(--spacing-4);
   }
+}
+</style>
+
+<style>
+/* ============================================
+   淺色主題全局覆蓋樣式 (非 Scoped)
+   ============================================ */
+[data-theme="light"] .sidebar {
+  background: #ffffff;
+}
+
+[data-theme="light"] .sidebar-header {
+  border-bottom-color: var(--color-border);
+}
+
+[data-theme="light"] .btn-collapse:hover {
+  background: var(--color-slate-100);
+  color: var(--color-primary-600);
+}
+
+[data-theme="light"] .nav-item {
+  color: var(--color-slate-600);
+}
+
+[data-theme="light"] .nav-item:hover {
+  background: var(--color-slate-100);
+  color: var(--color-primary-600);
+}
+
+[data-theme="light"] .nav-item.active {
+  background: var(--color-primary-50);
+  color: var(--color-primary-600);
+}
+
+[data-theme="light"] .version-info {
+  background: var(--color-slate-100);
+  color: var(--color-slate-500);
+}
+
+[data-theme="light"] .topbar {
+  background: #ffffff;
+}
+
+[data-theme="light"] .btn-icon:hover {
+  background: var(--color-slate-100);
+  color: var(--color-primary-600);
 }
 </style>

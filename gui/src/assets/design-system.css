@@ -94,7 +94,7 @@
     --color-slate-900: #0f172a;
     --color-slate-950: #020617;
 
-    /* 語義化顏色 */
+    /* 語義化顏色 - 深色主題 (預設) */
     --color-background: var(--color-slate-900);
     --color-background-secondary: var(--color-slate-800);
     --color-surface: var(--color-slate-800);
@@ -112,7 +112,32 @@
     --color-warning: var(--color-orange-500);
     --color-error: var(--color-red-500);
     --color-info: var(--color-blue-500);
+}
 
+/* 淺色主題 */
+[data-theme="light"] {
+    /* 語義化顏色 - 淺色主題 */
+    --color-background: #ffffff;
+    --color-background-secondary: var(--color-slate-50);
+    --color-surface: var(--color-slate-100);
+    --color-surface-hover: var(--color-slate-200);
+    --color-border: rgba(148, 163, 184, 0.3);
+    --color-border-hover: rgba(148, 163, 184, 0.4);
+
+    /* 文字顏色 */
+    --color-text-primary: var(--color-slate-900);
+    --color-text-secondary: var(--color-slate-600);
+    --color-text-tertiary: var(--color-slate-500);
+    --color-text-disabled: var(--color-slate-400);
+
+    --color-success: var(--color-green-600);
+    --color-warning: var(--color-orange-600);
+    --color-error: var(--color-red-600);
+    --color-info: var(--color-blue-600);
+}
+
+
+:root {
     /* === 漸層 === */
     --gradient-primary: var(--color-primary-600);
     --gradient-primary-hover: var(--color-primary-700);
@@ -391,12 +416,23 @@ body {
     padding: var(--spacing-3) var(--spacing-4);
     font-size: var(--font-size-sm);
     font-family: var(--font-family-base);
-    color: #ffffff;
-    background: var(--color-slate-800);
+    color: var(--color-text-primary);
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     transition: all var(--transition-base);
     outline: none;
+}
+
+/* 淺色主題下的 select 特殊處理 */
+[data-theme="light"] .select {
+    background: #ffffff;
+    color: var(--color-slate-900);
+}
+
+[data-theme="light"] .select option {
+    background: #ffffff;
+    color: var(--color-slate-900);
 }
 
 .input:focus,
@@ -529,16 +565,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--color-slate-900);
+    background: var(--color-background);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--color-slate-700);
+    background: var(--color-border);
     border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-slate-600);
+    background: var(--color-border-hover);
 }
 
 /* === 選取文字樣式 === */

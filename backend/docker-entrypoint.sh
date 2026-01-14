@@ -33,7 +33,7 @@ echo "開始初始化數據庫..."
 echo "============================================================"
 
 echo ""
-echo "[1/5] 建立基礎資料表 (conversations, messages)..."
+echo "[1/7] 建立基礎資料表 (conversations, messages)..."
 if python init_db.py; then
   echo "✓ 基礎資料表初始化完成"
 else
@@ -41,7 +41,7 @@ else
 fi
 
 echo ""
-echo "[2/5] 建立 MCP Servers 資料表..."
+echo "[2/7] 建立 MCP Servers 資料表..."
 if python create_mcp_servers_table.py; then
   echo "✓ MCP Servers 資料表初始化完成"
 else
@@ -49,7 +49,7 @@ else
 fi
 
 echo ""
-echo "[3/5] 建立 LINE Bot 相關資料表..."
+echo "[3/7] 建立 LINE Bot 相關資料表..."
 if python init_line_db.py; then
   echo "✓ LINE Bot 資料表初始化完成"
 else
@@ -58,7 +58,7 @@ fi
 
 # Step 4: 系統提示詞資料庫初始化
 echo ""
-echo "[4/5] 建立系統提示詞資料表..."
+echo "[4/7] 建立系統提示詞資料表..."
 if python init_prompts_db.py; then
   echo "✓ 系統提示詞資料表初始化完成"
 else
@@ -67,7 +67,7 @@ fi
 
 # Step 5: RAG 資料庫初始化
 echo ""
-echo "[5/6] 建立 RAG 資料表..."
+echo "[5/7] 建立 RAG 資料表..."
 if python init_rag_db.py; then
   echo "✓ RAG 資料表初始化完成"
 else
@@ -76,11 +76,20 @@ fi
 
 # Step 6: 知識庫配置遷移
 echo ""
-echo "[6/6] 建立知識庫配置表..."
+echo "[6/7] 建立知識庫配置表..."
 if python migrations/add_kb_configs.py; then
   echo "✓ 知識庫配置表初始化完成"
 else
   echo "⚠ add_kb_configs.py 執行失敗或表已存在"
+fi
+
+# Step 7: Agent 資料庫初始化
+echo ""
+echo "[7/7] 建立 AI Agent 資料表..."
+if python init_agents_db.py; then
+  echo "✓ AI Agent 資料表初始化完成"
+else
+  echo "⚠ init_agents_db.py 執行失敗或表已存在"
 fi
 
 echo ""

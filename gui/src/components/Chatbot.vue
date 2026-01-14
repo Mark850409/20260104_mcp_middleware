@@ -1,15 +1,17 @@
 <template>
-  <div class="chatbot-container">
+  <div class="chatbot-wrapper">
     <!-- 側邊欄 - 對話列表 -->
-    <aside class="sidebar">
+    <aside class="conversations-sidebar">
       <div class="sidebar-header">
-        <h2>💬 對話列表</h2>
-        <button @click="createNewConversation" class="btn-new">
-          ➕ 新對話
-        </button>
-        <button @click="clearAllConversations" class="btn-clear">
-          🗑️ 清空全部
-        </button>
+        <h2>對話列表</h2>
+        <div class="header-actions">
+          <button @click="createNewConversation" class="btn-new">
+            <i class="ri-add-circle-line"></i> 新對話
+          </button>
+          <button @click="clearAllConversations" class="btn-clear">
+            <i class="ri-delete-bin-6-line"></i> 清空
+          </button>
+        </div>
       </div>
       
       <div class="conversations-list">
@@ -50,43 +52,50 @@
             :class="['message', message.role]"
           >
             <div class="message-avatar">
-              {{ message.role === 'user' ? '👤' : '🤖' }}
+              <i :class="message.role === 'user' ? 'ri-user-3-line' : 'ri-robot-line'"></i>
             </div>
             <div class="message-content">
               <!-- MCP 工具調用顯示 (先顯示) -->
               <div v-if="message.tool_calls && message.tool_calls.length > 0" class="tool-calls">
                 <div v-for="(call, idx) in message.tool_calls" :key="idx" class="tool-call-item">
-                  <div class="tool-call-header">
-                    <span class="tool-icon">⚡</span>
+                  <div class="tool-call-header" @click="toggleToolCall(call)">
+                    <span class="tool-icon"><i class="ri-flashlight-line"></i></span>
                     <span class="tool-name">{{ call.function.name }}</span>
                     <span class="tool-badge">工具調用</span>
+                    <span class="toggle-icon" :class="{ rotated: !call.collapsed }">
+                      <i class="ri-arrow-down-s-line"></i>
+                    </span>
                   </div>
                   
-                  <div class="tool-call-body">
-                    <!-- Request -->
-                    <div class="tool-section">
-                      <div class="section-header">
-                        <span class="section-icon">📤</span>
-                        <span class="section-title">請求參數</span>
-                      </div>
-                      <div class="section-content">
-                        <div v-for="(value, key) in parseToolArguments(call.function.arguments)" :key="key" class="param-item">
-                          <span class="param-key">{{ key }}</span>
-                          <span class="param-value">{{ value }}</span>
+                  <div class="tool-call-body-wrapper" :class="{ expanded: !call.collapsed }">
+                    <div class="tool-call-body-inner">
+                      <div class="tool-call-body">
+                        <!-- Request -->
+                        <div class="tool-section">
+                          <div class="section-header">
+                            <span class="section-icon"><i class="ri-upload-2-line"></i></span>
+                            <span class="section-title">請求參數</span>
+                          </div>
+                          <div class="section-content">
+                            <div v-for="(value, key) in parseToolArguments(call.function.arguments)" :key="key" class="param-item">
+                              <span class="param-key">{{ key }}</span>
+                              <span class="param-value">{{ value }}</span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    
-                    <!-- Response -->
-                    <div v-if="call.result" class="tool-section">
-                      <div class="section-header">
-                        <span class="section-icon">📥</span>
-                        <span class="section-title">回應結果</span>
-                      </div>
-                      <div class="section-content">
-                        <div v-for="(value, key) in parseToolResult(call.result)" :key="key" class="result-item">
-                          <span class="result-key">{{ formatKey(key) }}</span>
-                          <span class="result-value">{{ value }}</span>
+                        
+                        <!-- Response -->
+                        <div v-if="call.result" class="tool-section">
+                          <div class="section-header">
+                            <span class="section-icon"><i class="ri-download-2-line"></i></span>
+                            <span class="section-title">回應結果</span>
+                          </div>
+                          <div class="section-content">
+                            <div v-for="(value, key) in parseToolResult(call.result)" :key="key" class="result-item">
+                              <span class="result-key">{{ formatKey(key) }}</span>
+                              <span class="result-value">{{ value }}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -102,7 +111,7 @@
           </div>
           
           <div v-if="isLoading" class="message assistant">
-            <div class="message-avatar">🤖</div>
+            <div class="message-avatar"><i class="ri-robot-line"></i></div>
             <div class="message-content">
               <div class="typing-indicator">
                 <span></span><span></span><span></span>
@@ -124,7 +133,7 @@
                 :title="selectedMcpServers.length > 0 ? `已選 ${selectedMcpServers.length} 個工具` : '新增工具'"
                 :class="{ 'has-selection': selectedMcpServers.length > 0 }"
               >
-                <span>➕</span>
+                <i :class="selectedMcpServers.length > 0 ? 'ri-tools-fill' : 'ri-add-line'"></i>
               </button>
               
               <!-- MCP 選單 Popup -->
@@ -143,7 +152,9 @@
                     :class="{ active: selectedMcpServers.includes(server.name) }"
                     @click="toggleMcpServer(server.name)"
                   >
-                    <span class="check-icon">{{ selectedMcpServers.includes(server.name) ? '☑️' : '⬜' }}</span>
+                    <span class="check-icon">
+                      <i :class="selectedMcpServers.includes(server.name) ? 'ri-checkbox-fill' : 'ri-checkbox-blank-line'"></i>
+                    </span>
                     <span class="menu-label">{{ server.name }}</span>
                   </div>
                 </div>
@@ -188,7 +199,7 @@
                 >
                   <span class="provider-dot" :class="selectedProvider"></span>
                   {{ selectedModel }}
-                  <span class="arrow-icon">▼</span>
+                  <span class="arrow-icon"><i class="ri-arrow-down-s-line"></i></span>
                 </button>
                 
                 <!-- 模型選單 Popup -->
@@ -199,8 +210,20 @@
                   </div>
                   <div class="popover-content p-2">
                     <div class="form-group">
+                      <label>使用 Agent</label>
+                      <select v-model="selectedAgentId" @change="onAgentChange" class="popup-select">
+                        <option :value="null">無 (自訂模式)</option>
+                        <option v-for="agent in availableAgents" :key="agent.id" :value="agent.id">
+                          {{ agent.name }}
+                        </option>
+                      </select>
+                      <div v-if="selectedAgentId" class="agent-hint">
+                        🤖 使用 Agent 時,模型和工具由 Agent 管理
+                      </div>
+                    </div>
+                    <div class="form-group">
                       <label>供應商</label>
-                      <select v-model="selectedProvider" @change="updateModelList" class="popup-select">
+                      <select v-model="selectedProvider" @change="updateModelList" class="popup-select" :disabled="!!selectedAgentId">
                         <option value="openai">OpenAI</option>
                         <option value="google">Google</option>
                         <option value="anthropic">Anthropic</option>
@@ -208,7 +231,7 @@
                     </div>
                     <div class="form-group">
                       <label>模型</label>
-                      <select v-model="selectedModel" class="popup-select">
+                      <select v-model="selectedModel" class="popup-select" :disabled="!!selectedAgentId">
                         <option v-for="model in availableModels" :key="model.name" :value="model.name">
                           {{ model.display_name }}
                         </option>
@@ -216,7 +239,7 @@
                     </div>
                     <div class="form-group">
                       <label>系統提示詞</label>
-                      <select v-model="selectedPromptId" class="popup-select">
+                      <select v-model="selectedPromptId" class="popup-select" :disabled="!!selectedAgentId">
                         <option :value="null">無系統提示詞</option>
                         <option v-for="prompt in availablePrompts" :key="prompt.id" :value="prompt.id">
                           {{ prompt.name }} {{ prompt.is_default ? '(預設)' : '' }}
@@ -225,7 +248,7 @@
                     </div>
                     <div class="form-group">
                       <label>知識庫 (RAG)</label>
-                      <select v-model="selectedKbId" class="popup-select">
+                      <select v-model="selectedKbId" class="popup-select" :disabled="!!selectedAgentId">
                         <option :value="null">不使用知識庫</option>
                         <option v-for="kb in availableKbs" :key="kb.id" :value="kb.id">
                           {{ kb.name }}
@@ -310,6 +333,10 @@ export default {
     const availableMcpServers = ref([])
     const selectedMcpServers = ref([])
     
+    // Agents
+    const availableAgents = ref([])
+    const selectedAgentId = ref(null)
+    
     // 方法
     const loadConversations = async () => {
       try {
@@ -390,6 +417,57 @@ export default {
       }
     }
     
+    const loadAgents = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/api/agents`)
+        if (response.data.success) {
+          availableAgents.value = response.data.agents
+        }
+      } catch (error) {
+        console.error('載入 Agents 失敗:', error)
+      }
+    }
+    
+    const onAgentChange = async () => {
+      if (selectedAgentId.value) {
+        // 載入 Agent 配置
+        try {
+          const response = await axios.get(`${API_URL}/api/agents/${selectedAgentId.value}`)
+          if (response.data.success) {
+            const agent = response.data.agent
+            
+            // 套用 Agent 配置
+            selectedProvider.value = agent.model_provider
+            selectedModel.value = agent.model_name
+            selectedPromptId.value = agent.system_prompt_id
+            
+            // 載入知識庫 (取第一個)
+            if (agent.knowledge_bases && agent.knowledge_bases.length > 0) {
+              selectedKbId.value = agent.knowledge_bases[0].id
+            } else {
+              selectedKbId.value = null
+            }
+            
+            // 載入 MCP 工具
+            if (agent.mcp_tools && agent.mcp_tools.length > 0) {
+              selectedMcpServers.value = agent.mcp_tools.map(tool => tool.mcp_server_name)
+            } else {
+              selectedMcpServers.value = []
+            }
+            
+            console.log(`[Agent] 已套用 Agent "${agent.name}" 的配置`)
+          }
+        } catch (error) {
+          console.error('載入 Agent 配置失敗:', error)
+          Swal.fire({
+            icon: 'error',
+            title: '載入 Agent 失敗',
+            text: error.message
+          })
+        }
+      }
+    }
+    
     const clearAllConversations = async () => {
       const result = await Swal.fire({
         title: '確定要清空嗎?',
@@ -437,15 +515,22 @@ export default {
     
     const createNewConversation = async () => {
       try {
-        const response = await axios.post(`${API_URL}/api/chat/conversations`, {
+        const payload = {
           title: `新對話 ${new Date().toLocaleString()}`,
-          model_provider: selectedProvider.value,
-          model_name: selectedModel.value,
-          mcp_enabled: selectedMcpServers.value.length > 0,
-          mcp_servers: selectedMcpServers.value,
-          system_prompt_id: selectedPromptId.value,
-          kb_id: selectedKbId.value
-        })
+          agent_id: selectedAgentId.value
+        }
+        
+        // 如果沒有使用 Agent,使用自訂配置
+        if (!selectedAgentId.value) {
+          payload.model_provider = selectedProvider.value
+          payload.model_name = selectedModel.value
+          payload.mcp_enabled = selectedMcpServers.value.length > 0
+          payload.mcp_servers = selectedMcpServers.value
+          payload.system_prompt_id = selectedPromptId.value
+          payload.kb_id = selectedKbId.value
+        }
+        
+        const response = await axios.post(`${API_URL}/api/chat/conversations`, payload)
         
         if (response.data.success) {
           await loadConversations()
@@ -478,6 +563,16 @@ export default {
         if (response.data.success) {
           currentConversationId.value = conversationId
           const conv = response.data.conversation
+          // 初始化工具調用折疊狀態
+          if (conv.messages) {
+            conv.messages.forEach(msg => {
+              if (msg.tool_calls) {
+                msg.tool_calls.forEach(call => {
+                  call.collapsed = true
+                })
+              }
+            })
+          }
           currentMessages.value = conv.messages || []
           currentConversationSource.value = conv.source
           
@@ -487,6 +582,7 @@ export default {
           selectedMcpServers.value = conv.mcp_servers || []
           selectedPromptId.value = conv.system_prompt_id || null
           selectedKbId.value = conv.kb_id || null
+          selectedAgentId.value = conv.agent_id || null
           
           // 如果是 LINE 對話,啟動自動刷新
           if (conv.source === 'line') {
@@ -520,6 +616,18 @@ export default {
         if (response.data.success) {
           const conv = response.data.conversation
           const newMessages = conv.messages || []
+          
+          // 為新訊息初始化工具折疊狀態
+          newMessages.forEach(msg => {
+            if (msg.tool_calls) {
+              msg.tool_calls.forEach(call => {
+                // 如果已經存在且狀態被手動改變過，保持狀態，否則預設折疊
+                // 這裡簡化處理，因為是替換整個陣列，我們嘗試保留舊狀態比較複雜
+                // 但如果是增量更新，新訊息預設折疊是合理的
+                call.collapsed = true
+              })
+            }
+          })
           
           console.log(`[LINE] 當前訊息數: ${currentMessages.value.length}, 新訊息數: ${newMessages.length}`)
           
@@ -660,6 +768,10 @@ export default {
       } else {
         selectedMcpServers.value = selectedMcpServers.value.filter(id => id !== serverId)
       }
+    }
+    
+    const toggleToolCall = (call) => {
+      call.collapsed = !call.collapsed
     }
     
     const inputArea = ref(null)
@@ -825,7 +937,15 @@ export default {
       await loadMcpServers()
       await loadPrompts()
       await loadKbs()
+      await loadAgents()
       await loadConversations()
+      
+      // 檢查是否有測試對話需要開啟
+      const testConversationId = localStorage.getItem('test_conversation_id')
+      if (testConversationId) {
+        localStorage.removeItem('test_conversation_id')
+        selectConversation(parseInt(testConversationId))
+      }
     })
     
     // 清理
@@ -869,7 +989,11 @@ export default {
       availablePrompts,
       selectedPromptId,
       availableKbs,
-      selectedKbId
+      selectedKbId,
+      availableAgents,
+      selectedAgentId,
+      onAgentChange,
+      toggleToolCall
     }
   }
 }
@@ -878,35 +1002,20 @@ export default {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
-.chatbot-container {
+/* 根容器樣式 */
+.chatbot-wrapper {
   display: flex;
-  height: 100vh;
-  background: #f8fafc;
+  height: calc(100vh - var(--topbar-height));
   font-family: 'Outfit', sans-serif;
-  color: #1e293b;
   overflow: hidden;
   position: relative;
 }
 
-.chatbot-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3), transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(255, 135, 135, 0.3), transparent 50%),
-    radial-gradient(circle at 40% 20%, rgba(99, 102, 241, 0.2), transparent 50%);
-  pointer-events: none;
-}
-
-/* 側邊欄 */
-.sidebar {
+/* 側邊欄 - 對話列表 */
+.conversations-sidebar {
   width: 320px;
-  background: white;
-  border-right: 1px solid #e2e8f0;
+  background: var(--color-background-secondary);
+  border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   box-shadow: 4px 0 10px rgba(0, 0, 0, 0.02);
@@ -927,9 +1036,8 @@ export default {
 }
 
 .sidebar-header {
-  padding: 2rem 1.5rem;
-  position: relative;
-  z-index: 1;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .sidebar-header h2 {
@@ -993,22 +1101,22 @@ export default {
   width: 100%;
   padding: 1rem;
   margin-top: 0.75rem;
-  background: rgba(255, 255, 255, 0.8);
-  color: #ef4444;
-  border: 2px solid rgba(239, 68, 68, 0.2);
+  background: var(--color-background-secondary);
+  color: var(--color-red-600);
+  border: 1.5px solid var(--color-red-100);
   border-radius: 16px;
   font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--transition-base);
   backdrop-filter: blur(10px);
 }
 
 .btn-clear:hover {
-  background: rgba(254, 242, 242, 0.95);
-  border-color: rgba(239, 68, 68, 0.4);
+  background: var(--color-red-50);
+  border-color: var(--color-red-600);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+  box-shadow: var(--shadow-sm);
 }
 
 .conversations-list {
@@ -1035,14 +1143,14 @@ export default {
 }
 
 .conversation-item {
-  padding: 1.25rem;
-  margin-bottom: 0.75rem;
-  background: rgba(255, 255, 255, 0.7);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+  background: var(--color-surface);
   backdrop-filter: blur(10px);
-  border: 2px solid transparent;
+  border: 1px solid var(--color-border);
   border-radius: 18px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--transition-base);
   position: relative;
   overflow: hidden;
 }
@@ -1066,9 +1174,9 @@ export default {
 }
 
 .conversation-item:hover {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--color-surface-hover);
   transform: translateX(5px);
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
+  box-shadow: var(--shadow-md);
 }
 
 .conversation-item:hover::before {
@@ -1077,11 +1185,9 @@ export default {
 }
 
 .conversation-item.active {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: transparent;
-  box-shadow: 
-    0 8px 25px rgba(102, 126, 234, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  background: var(--color-surface);
+  border-color: var(--color-primary-500);
+  box-shadow: var(--shadow-md);
 }
 
 .conversation-item.active::before {
@@ -1092,8 +1198,8 @@ export default {
 .conv-title {
   font-weight: 600;
   margin-bottom: 0.75rem;
-  color: #1e293b;
-  font-size: 0.95rem;
+  color: var(--color-text-primary);
+  font-size: 1rem;
   display: -webkit-box;
   -webkit-line-clamp: 1;
   line-clamp: 1;
@@ -1117,13 +1223,15 @@ export default {
 }
 
 .provider-badge {
-  background: linear-gradient(135deg, #e0e7ff 0%, #ddd6fe 100%);
-  color: #6366f1;
+  background: var(--color-primary-50);
+  color: var(--color-primary-600);
+  border: 1px solid var(--color-primary-200);
 }
 
 .mcp-badge {
-  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-  color: #059669;
+  background: var(--color-green-50);
+  color: var(--color-green-600);
+  border: 1px solid var(--color-green-200);
 }
 
 /* 主聊天區 */
@@ -1131,7 +1239,7 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: var(--color-background);
   position: relative;
   overflow: hidden;
   box-shadow: inset 4px 0 10px rgba(0, 0, 0, 0.02);
@@ -1139,8 +1247,8 @@ export default {
 
 .chat-header {
   padding: 0 2rem;
-  background: white;
-  border-bottom: 1px solid #f1f5f9;
+  background: var(--color-background);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1171,12 +1279,12 @@ export default {
 
 .modern-select {
   padding: 0.5rem 2rem 0.5rem 0.75rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   border-radius: 10px;
-  background: white;
+  background: var(--color-surface);
   font-size: 0.9rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--color-text-primary);
   cursor: pointer;
   outline: none;
   transition: all 0.2s;
@@ -1217,18 +1325,18 @@ export default {
 
 /* 美化後的 MCP Chip 樣式 - 簡約版 */
 .mcp-chip {
-  padding: 0.4rem 0.8rem;
-  border-radius: 8px;
-  background: white;
-  color: #64748b;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  background: var(--color-background);
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-base) ease;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1240,9 +1348,9 @@ export default {
 }
 
 .mcp-chip.active {
-  background: #eff6ff; /* 淺藍色背景 */
-  color: #4f46e5;      /* 靛藍色文字 */
-  border-color: #6366f1;
+  background: var(--color-primary-100);
+  color: var(--color-primary-700);
+  border-color: var(--color-primary-300);
   font-weight: 600;
   box-shadow: 0 2px 4px rgba(99, 102, 241, 0.1);
 }
@@ -1326,17 +1434,17 @@ export default {
 }
 
 .message-avatar {
-  width: 48px;
-  height: 48px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
-  background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);
+  background: var(--color-background-secondary);
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
-  transition: all 0.3s;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
 }
 
 .message.user .message-avatar {
@@ -1354,14 +1462,15 @@ export default {
 }
 
 .message-text {
-  padding: 1.25rem;
+  padding: 1.5rem;
   border-radius: 20px;
-  background: #f8fafc;
-  color: #334155;
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
   line-height: 1.6;
-  font-size: 1rem;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+  font-size: 1.05rem;
+  box-shadow: var(--shadow-sm);
   width: fit-content;
+  border: 1px solid var(--color-border);
 }
 
 .message.user .message-text {
@@ -1387,16 +1496,16 @@ export default {
 
 .message.assistant .message-text {
   border-bottom-left-radius: 4px;
-  background: white;
-  border: 1px solid #f1f5f9;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .message.assistant .message-text:hover {
-  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-md);
   transform: translateY(-2px);
-  border-color: #e2e8f0;
+  border-color: var(--color-primary-300);
 }
 
 /* 工具調用樣式 */
@@ -1408,8 +1517,8 @@ export default {
 
 .tool-call-item {
   margin-bottom: 1rem;
-  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
-  border: 2px solid #e2e8f0;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
@@ -1422,6 +1531,12 @@ export default {
   align-items: center;
   gap: 0.75rem;
   color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tool-call-header:hover {
+  opacity: 0.95;
 }
 
 .tool-call-header .tool-icon {
@@ -1444,6 +1559,30 @@ export default {
   letter-spacing: 0.05em;
 }
 
+.toggle-icon {
+  margin-left: auto;
+  transition: transform 0.3s;
+}
+
+.toggle-icon.rotated {
+  transform: rotate(180deg);
+}
+
+/* 工具折疊動畫 */
+.tool-call-body-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease-out;
+}
+
+.tool-call-body-wrapper.expanded {
+  grid-template-rows: 1fr;
+}
+
+.tool-call-body-inner {
+  overflow: hidden;
+}
+
 .tool-call-body {
   padding: 1.25rem;
 }
@@ -1462,7 +1601,7 @@ export default {
   gap: 0.5rem;
   margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 2px solid var(--color-border);
 }
 
 .section-icon {
@@ -1471,7 +1610,7 @@ export default {
 
 .section-title {
   font-weight: 700;
-  color: #334155;
+  color: var(--color-text-primary);
   font-size: 0.95rem;
 }
 
@@ -1486,21 +1625,21 @@ export default {
   align-items: baseline;
   gap: 0.75rem;
   padding: 0.75rem;
-  background: white;
+  background: var(--color-surface);
   border-radius: 8px;
-  border: 1px solid #f1f5f9;
+  border: 1px solid var(--color-border);
 }
 
 .param-key, .result-key {
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
   min-width: 100px;
   flex-shrink: 0;
 }
 
 .param-value, .result-value {
-  color: #1e293b;
+  color: var(--color-text-primary);
   font-size: 0.95rem;
   word-break: break-word;
   flex: 1;
@@ -1514,7 +1653,7 @@ export default {
 /* 輸入區 */
 .input-wrapper {
   padding: 1.5rem 15%;
-  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, white 100%);
+  background: linear-gradient(to bottom, transparent 0%, var(--color-background) 100%);
   position: relative;
 }
 
@@ -1522,10 +1661,10 @@ export default {
   display: flex;
   align-items: flex-end;
   gap: 1rem;
-  background: white;
+  background: var(--color-background);
   padding: 0.75rem 1rem;
   border-radius: 24px;
-  border: 2px solid #f1f5f9;
+  border: 2px solid var(--color-border);
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
   transition: all 0.3s;
 }
@@ -1552,20 +1691,21 @@ export default {
   width: 48px;
   height: 48px;
   border-radius: 16px;
-  background: #6366f1;
+  background: var(--color-primary-600);
   color: white;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all var(--transition-base);
   flex-shrink: 0;
 }
 
-.btn-send-modern:hover {
-  background: #4f46e5;
-  transform: scale(1.05);
+.btn-send-modern:hover:not(:disabled) {
+  background: var(--color-primary-700);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: var(--shadow-md);
 }
 
 .btn-send-modern:disabled {
@@ -1580,14 +1720,14 @@ export default {
 /* 輸入區新樣式 */
 .input-wrapper {
   padding: 1.5rem 15%;
-  background: white; /* 不需要漸層了，因為沒有頂部遮擋 */
+  background: transparent; 
   position: relative;
   z-index: 20; /* 確保 Popover 在最上層 */
 }
 
 .input-integrated-container {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   padding: 0.75rem;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
@@ -1598,15 +1738,15 @@ export default {
 }
 
 .input-integrated-container:focus-within {
-  border-color: #6366f1;
-  background: white;
+  border-color: var(--color-primary-500);
+  background: var(--color-background);
   box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.1);
 }
 
 .input-top-row {
   display: flex;
   align-items: flex-start;
-  gap: 0.8rem;
+  gap: 1.25rem;
 }
 
 .accordion-wrapper {
@@ -1617,9 +1757,9 @@ export default {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #64748b;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1666,8 +1806,13 @@ export default {
   resize: none;
   outline: none;
   line-height: 1.5;
-  color: #1e293b;
+  color: var(--color-text-primary);
+  caret-color: var(--color-primary-500);
   min-height: 40px;
+}
+
+.main-textarea::placeholder {
+  color: var(--color-text-tertiary);
 }
 
 .input-bottom-row {
@@ -1784,9 +1929,10 @@ export default {
 .popover-menu {
   position: absolute;
   bottom: 100%; /* pop up above */
-  background: white;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0,0,0,0.05);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
   margin-bottom: 0.8rem;
   min-width: 220px;
   z-index: 100;
@@ -1814,17 +1960,17 @@ export default {
 
 .popover-header {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #f8fafc;
+  background: var(--color-background-secondary);
 }
 
 .popover-title {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #64748b;
+  color: var(--color-text-primary);
   text-transform: uppercase;
 }
 
@@ -1851,17 +1997,17 @@ export default {
   align-items: center;
   gap: 0.6rem;
   transition: all 0.2s;
-  color: #334155;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
 }
 
 .menu-item:hover {
-  background: #f1f5f9;
+  background: var(--color-surface-hover);
 }
 
 .menu-item.active {
-  background: #eff6ff;
-  color: #4f46e5;
+  background: var(--color-primary-100);
+  color: var(--color-primary-600);
   font-weight: 500;
 }
 
@@ -1885,23 +2031,54 @@ export default {
   display: block;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-text-secondary);
   margin-bottom: 0.3rem;
 }
 
-.popup-select {
+.popover-content .popup-select,
+.popover-content select.popup-select {
   width: 100%;
   padding: 0.5rem;
-  border: 1px solid #e2e8f0;
+  background-color: var(--color-background-secondary) !important;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   outline: none;
   font-size: 0.9rem;
-  color: #1e293b;
+  color: var(--color-text-primary) !important;
 }
 
-.popup-select:focus {
-  border-color: #6366f1;
+.popover-content .popup-select option,
+.popover-content select.popup-select option {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text-primary) !important;
+  padding: 0.5rem;
 }
+
+.popover-content .popup-select:focus,
+.popover-content select.popup-select:focus {
+  border-color: #6366f1;
+  background-color: #ffffff !important;
+}
+
+.popover-content .popup-select:disabled,
+.popover-content select.popup-select:disabled {
+  background-color: var(--color-slate-100) !important;
+  color: var(--color-text-tertiary) !important;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.agent-hint {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: var(--color-primary-50);
+  border-left: 3px solid var(--color-primary-500);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: var(--color-primary-700);
+  font-weight: 500;
+}
+
 
 @keyframes popIn {
   from { opacity: 0; transform: translateY(10px) scale(0.98); }
@@ -1926,7 +2103,7 @@ export default {
 /* Markdown 樣式 */
 .markdown-body {
   line-height: 1.6;
-  color: #1e293b;
+  color: var(--color-text-primary);
 }
 
 .markdown-body p {
@@ -1942,15 +2119,15 @@ export default {
   margin: 1.25rem 0 0.75rem 0;
   font-weight: 600;
   line-height: 1.3;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
-.markdown-body h1 { font-size: 1.75rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; }
-.markdown-body h2 { font-size: 1.5rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.4rem; }
+.markdown-body h1 { font-size: 1.75rem; border-bottom: 2px solid var(--color-border); padding-bottom: 0.5rem; }
+.markdown-body h2 { font-size: 1.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.4rem; }
 .markdown-body h3 { font-size: 1.25rem; }
 .markdown-body h4 { font-size: 1.1rem; }
 .markdown-body h5 { font-size: 1rem; }
-.markdown-body h6 { font-size: 0.9rem; color: #475569; }
+.markdown-body h6 { font-size: 0.9rem; color: var(--color-text-secondary); }
 
 .markdown-body ul,
 .markdown-body ol {
@@ -2099,7 +2276,7 @@ export default {
 
 .markdown-body strong {
   font-weight: 600;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .markdown-body em {
@@ -2142,6 +2319,195 @@ export default {
   30% {
     transform: translateY(-10px);
     opacity: 1;
+  }
+}
+
+/* ============================================
+   淺色主題覆蓋樣式
+   ============================================ */
+[data-theme="light"] .chatbot-wrapper {
+  /* 對話列表 */
+  .conversations-sidebar {
+    background: var(--color-background-secondary);
+    border-right-color: var(--color-border);
+
+    .sidebar-header {
+      border-bottom-color: var(--color-border);
+      h2 { color: var(--color-text-primary); }
+    }
+  }
+
+  .conversation-item {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+    color: var(--color-text-primary);
+  }
+
+  .conversation-item:hover {
+    background: var(--color-surface-hover);
+  }
+
+  .conversation-item.active {
+    background: var(--color-primary-100);
+    border-color: var(--color-primary-300);
+    color: var(--color-primary-700);
+  }
+
+  /* 訊息區 */
+  .messages-container {
+    background: var(--color-background);
+  }
+
+  .message {
+    color: var(--color-text-primary);
+  }
+
+  .message.user .message-text {
+    background: var(--color-primary-100);
+    color: var(--color-primary-900);
+    border-color: var(--color-primary-200);
+  }
+
+  .message.assistant .message-text {
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    border-color: var(--color-border);
+  }
+
+  /* 程式碼區塊 */
+  pre {
+    background: var(--color-slate-100) !important;
+    border-color: var(--color-border);
+  }
+
+  code {
+    background: var(--color-slate-100);
+    color: var(--color-slate-900);
+  }
+
+  /* 工具調用 */
+  .tool-call {
+    background: var(--color-blue-50);
+    border-color: var(--color-blue-200);
+    color: var(--color-blue-900);
+  }
+
+  .tool-result {
+    background: var(--color-green-50);
+    border-color: var(--color-green-200);
+    color: var(--color-green-900);
+  }
+
+  /* 輸入區 */
+  .input-integrated-container {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+  }
+
+  .main-textarea {
+    background: transparent;
+    color: var(--color-text-primary);
+  }
+
+  .main-textarea::placeholder {
+    color: var(--color-text-tertiary);
+  }
+
+  /* 按鈕 */
+  .btn-plus {
+    background: var(--color-surface-hover);
+    color: var(--color-text-primary);
+    border-color: var(--color-border);
+  }
+
+  .btn-plus:hover {
+    background: var(--color-primary-100);
+    color: var(--color-primary-700);
+    border-color: var(--color-primary-300);
+  }
+
+  .btn-model-trigger {
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    border-color: var(--color-border);
+  }
+
+  .btn-model-trigger:hover {
+    background: var(--color-surface-hover);
+    border-color: var(--color-border-hover);
+  }
+
+  /* 彈出選單 */
+  .popover-menu {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-xl);
+  }
+
+  .popover-header {
+    border-bottom-color: var(--color-border);
+  }
+
+  .popover-title {
+    color: var(--color-text-primary);
+  }
+
+  .menu-item {
+    color: var(--color-text-primary);
+  }
+
+  .menu-item:hover {
+    background: var(--color-surface-hover);
+  }
+
+  .menu-item.active {
+    background: var(--color-primary-100);
+    color: var(--color-primary-700);
+  }
+
+  /* Mini chips */
+  .mini-chip {
+    background: var(--color-primary-100);
+    color: var(--color-primary-700);
+    border-color: var(--color-primary-200);
+  }
+
+  /* 時間戳記 */
+  .message-time {
+    color: var(--color-text-tertiary);
+  }
+
+  /* JSON 顯示 */
+  .json-key {
+    color: var(--color-blue-700);
+  }
+
+  .json-string {
+    color: var(--color-green-700);
+  }
+
+  .json-number {
+    color: var(--color-orange-700);
+  }
+
+  .json-boolean {
+    color: var(--color-purple-700);
+  }
+
+  /* 清空按鈕與其它 */
+  .btn-clear {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+    color: #ef4444;
+  }
+
+  .btn-clear:hover {
+    background: #fff1f2;
+    border-color: #fecaca;
+  }
+
+  .welcome-screen {
+    color: var(--color-text-tertiary);
   }
 }
 </style>
