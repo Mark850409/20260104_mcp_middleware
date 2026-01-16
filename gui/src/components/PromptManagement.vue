@@ -3,7 +3,7 @@
     <div class="prompt-management">
       <div class="header">
         <h2><i class="ri-file-text-line"></i> 系統提示詞管理</h2>
-        <button @click="showCreateDialog = true" class="btn-create">
+        <button v-if="hasFunctionPermission('func_prompt_create')" @click="showCreateDialog = true" class="btn-create">
           <i class="ri-add-line"></i> 新增提示詞
         </button>
       </div>
@@ -25,10 +25,10 @@
               <span v-if="prompt.is_default" class="default-badge"><i class="ri-star-fill"></i> 預設</span>
             </div>
             <div class="prompt-actions">
-              <button @click="editPrompt(prompt)" class="btn-edit" title="編輯">
+              <button v-if="hasFunctionPermission('func_prompt_edit')" @click="editPrompt(prompt)" class="btn-edit" title="編輯">
                 <i class="ri-edit-line"></i>
               </button>
-              <button @click="deletePrompt(prompt)" class="btn-delete" title="刪除">
+              <button v-if="hasFunctionPermission('func_prompt_delete')" @click="deletePrompt(prompt)" class="btn-delete" title="刪除">
                 <i class="ri-delete-bin-line"></i>
               </button>
             </div>
@@ -47,7 +47,7 @@
               {{ formatDate(prompt.created_at) }}
             </span>
             <button
-              v-if="!prompt.is_default"
+              v-if="!prompt.is_default && hasFunctionPermission('func_prompt_edit')"
               @click="setAsDefault(prompt.id)"
               class="btn-set-default"
             >
@@ -121,13 +121,14 @@
 
 <script>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import request from '../utils/request'
 import Swal from 'sweetalert2'
+import { useAuth } from '../composables/useAuth'
 
 export default {
   name: 'PromptManagement',
   setup() {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+    const { hasFunctionPermission } = useAuth()
 
     const prompts = ref([])
     const showCreateDialog = ref(false)
@@ -144,7 +145,7 @@ export default {
 
     const loadPrompts = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/prompts`)
+        const response = await request.get('/api/prompts')
         if (response.data.success) {
           prompts.value = response.data.prompts
         }
@@ -185,7 +186,7 @@ export default {
       if (!result.isConfirmed) return
 
       try {
-        const response = await axios.delete(`${API_URL}/api/prompts/${prompt.id}`)
+        const response = await request.delete(`/api/prompts/${prompt.id}`)
         if (response.data.success) {
           await loadPrompts()
           Swal.fire({
@@ -208,7 +209,7 @@ export default {
 
     const setAsDefault = async (promptId) => {
       try {
-        const response = await axios.put(`${API_URL}/api/prompts/${promptId}`, {
+        const response = await request.put(`/api/prompts/${promptId}`, {
           is_default: true
         })
         if (response.data.success) {
@@ -243,12 +244,12 @@ export default {
       try {
         let response
         if (isEditing.value) {
-          response = await axios.put(
-            `${API_URL}/api/prompts/${editingId.value}`,
+          response = await request.put(
+            `/api/prompts/${editingId.value}`,
             formData.value
           )
         } else {
-          response = await axios.post(`${API_URL}/api/prompts`, formData.value)
+          response = await request.post('/api/prompts', formData.value)
         }
 
         if (response.data.success) {
@@ -309,7 +310,8 @@ export default {
       setAsDefault,
       savePrompt,
       closeDialog,
-      formatDate
+      formatDate,
+      hasFunctionPermission
     }
   }
 }
@@ -317,7 +319,6 @@ export default {
 
 <style scoped>
 .prompt-management {
-  padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
 }

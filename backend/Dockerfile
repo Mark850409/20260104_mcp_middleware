@@ -17,8 +17,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # 複製並設置 entrypoint 腳本權限
+# 複製並設置 entrypoint 腳本權限
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+# 修復 Windows 換行符號問題 (CRLF -> LF) 並賦予執行權限
+RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
 
 # 暴露 Flask API 端口
 EXPOSE 5000

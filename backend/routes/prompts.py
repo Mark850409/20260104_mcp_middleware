@@ -5,6 +5,7 @@
 from flask import Blueprint, request, jsonify
 import pymysql
 import os
+from services.auth_service import require_auth, require_permission
 
 prompts_bp = Blueprint('prompts', __name__, url_prefix='/api')
 
@@ -24,6 +25,7 @@ def get_db_connection():
 
 
 @prompts_bp.route('/prompts', methods=['GET'])
+@require_permission('func_prompt_view')
 def get_all_prompts():
     """
     獲取所有系統提示詞
@@ -60,6 +62,7 @@ def get_all_prompts():
 
 
 @prompts_bp.route('/prompts/<int:prompt_id>', methods=['GET'])
+@require_permission('func_prompt_view')
 def get_prompt(prompt_id):
     """
     獲取單一系統提示詞
@@ -105,6 +108,7 @@ def get_prompt(prompt_id):
 
 
 @prompts_bp.route('/prompts', methods=['POST'])
+@require_permission('func_prompt_create')
 def create_prompt():
     """
     創建新的系統提示詞
@@ -169,6 +173,7 @@ def create_prompt():
 
 
 @prompts_bp.route('/prompts/<int:prompt_id>', methods=['PUT'])
+@require_permission('func_prompt_edit')
 def update_prompt(prompt_id):
     """
     更新系統提示詞
@@ -262,6 +267,7 @@ def update_prompt(prompt_id):
 
 
 @prompts_bp.route('/prompts/<int:prompt_id>', methods=['DELETE'])
+@require_permission('func_prompt_delete')
 def delete_prompt(prompt_id):
     """
     刪除系統提示詞

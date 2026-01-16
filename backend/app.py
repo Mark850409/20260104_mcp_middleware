@@ -11,13 +11,24 @@ from routes.line import line_bp
 from routes.prompts import prompts_bp
 from routes.rag import rag_bp
 from routes.agents import agents_bp
+# 認證相關路由
+from routes.auth import auth_bp
+from routes.users import users_bp
+from routes.roles import roles_bp
+from routes.permissions import permissions_bp
 import os
 
 # 建立 Flask 應用
 app = Flask(__name__)
 
-# 啟用 CORS (允許前端跨域請求)
-CORS(app)
+# 啟用 CORS (允許前端跨域請求,並支援 Authorization header)
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 # 註冊 Blueprint
 app.register_blueprint(chat_bp)
@@ -26,6 +37,12 @@ app.register_blueprint(line_bp)
 app.register_blueprint(prompts_bp)
 app.register_blueprint(rag_bp)
 app.register_blueprint(agents_bp)
+# 認證相關 Blueprint
+app.register_blueprint(auth_bp)
+app.register_blueprint(users_bp)
+app.register_blueprint(roles_bp)
+app.register_blueprint(permissions_bp)
+
 
 
 @app.route('/api/health', methods=['GET'])

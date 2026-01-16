@@ -348,13 +348,16 @@
 <script>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
+import request from '../utils/request'
 import Swal from 'sweetalert2'
+
+// API 基礎 URL
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
 
 export default {
   name: 'MCPManagement',
   setup() {
-    // API Base URL
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+    // API 基礎 URL 已定義在外部
 
     // Tab 管理
     const tabs = [
@@ -414,7 +417,7 @@ export default {
     const loadServers = async () => {
       loadingServers.value = true
       try {
-        const response = await axios.get(`${API_URL}/api/mcp/servers`)
+        const response = await request.get('/api/mcp/servers')
         if (response.data.success) {
           const result = response.data.data
           // 如果回傳的是物件格式 (新的 config_manager 結構)
@@ -459,8 +462,8 @@ export default {
       }, 3000)
 
       try {
-        const response = await axios.post(
-          `${API_URL}/api/mcp/servers/${serverName}/toggle`, 
+        const response = await request.post(
+          `/api/mcp/servers/${serverName}/toggle`, 
           { enabled },
           { headers: { 'Content-Type': 'application/json' } }
         )
@@ -524,8 +527,8 @@ export default {
       }, 3000)
 
       try {
-        const response = await axios.post(
-          `${API_URL}/api/mcp/servers/${serverName}/test`,
+        const response = await request.post(
+          `/api/mcp/servers/${serverName}/test`,
           {},
           { headers: { 'Content-Type': 'application/json' } }
         )
@@ -574,7 +577,7 @@ export default {
       if (!result.isConfirmed) return
       
       try {
-        const response = await axios.delete(`${API_URL}/api/mcp/servers/${serverName}`)
+        const response = await request.delete(`/api/mcp/servers/${serverName}`)
         if (response.data.success) {
           await loadServers()
         }
@@ -641,8 +644,8 @@ export default {
         
         if (editingServer.value) {
           // 更新
-          const response = await axios.put(
-            `${API_URL}/api/mcp/servers/${serverForm.value.name}`,
+          const response = await request.put(
+            `/api/mcp/servers/${serverForm.value.name}`,
             config
           )
           clearTimeout(loadingTimer)
@@ -661,7 +664,7 @@ export default {
           }
         } else {
           // 新增
-          const response = await axios.post(`${API_URL}/api/mcp/servers`, {
+          const response = await request.post('/api/mcp/servers', {
             name: serverForm.value.name,
             config: config
           })
@@ -700,7 +703,7 @@ export default {
 
     // 匯出配置
     const exportConfig = () => {
-      window.open(`${API_URL}/api/mcp/export`, '_blank')
+      window.open('/api/mcp/export', '_blank')
     }
     
     // 觸發匯入
@@ -740,8 +743,8 @@ export default {
               })
             }, 3000)
 
-            const response = await axios.post(
-              `${API_URL}/api/mcp/import`, 
+            const response = await request.post(
+              '/api/mcp/import', 
               configData,
               { 
                 params: { overwrite },
@@ -987,8 +990,6 @@ export default {
 
 <style scoped>
 .mcp-management {
-  height: 100%;
-  overflow-y: auto;
   background: var(--color-background);
 }
 

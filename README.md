@@ -59,7 +59,15 @@
 
 ## ✨ 核心功能
 
-### 1. 多 Provider MCP Server 管理
+### 1. 認證與權限管理 (RBAC/Bypass)
+- **多角色權限**: 基於角色的存取控制 (RBAC)，支援頁面級與功能級權限。
+- **超級管理員 Bypass**: 超級管理員擁有所有權限規避邏輯，確保管理無阻。
+- **Session 逾時管理**: 
+    - 一般使用者支援 30 分鐘登入超時機制。
+    - 前端即時倒數計時器（5 分鐘警告閃爍提醒）。
+    - 管理員帳號永久在線，不執行逾時登出。
+
+### 2. 多 Provider MCP Server 管理
 - **Python Provider**: 執行本地 Python MCP 工具
 - **Node.js Provider**: 執行 Node.js/NPM MCP 工具
 - **Docker Provider**: 在隔離容器中執行 MCP 工具
@@ -68,7 +76,7 @@
 - **健康檢查**: 即時監控 Server 狀態
 - **工具管理**: 查看、測試、啟用/停用 MCP 工具
 
-### 2. AI Chatbot
+### 3. AI Chatbot
 - **多供應商支援**: OpenAI, Google Gemini, Anthropic Claude
 - **MCP 工具整合**: 可選擇性啟用多個 MCP 工具調用
 - **對話管理**: 建立、查看、切換、刪除多個對話
@@ -76,7 +84,7 @@
 - **串流回應**: 支援 AI 回應串流顯示
 - **工具調用追蹤**: 顯示工具調用過程與結果
 
-### 3. RAG 知識庫系統
+### 4. RAG 知識庫系統
 - **知識庫管理**: 建立、編輯、刪除知識庫
 - **檔案上傳**: 支援 TXT, PDF, DOCX, MD 等格式
 - **向量索引**: 自動建立向量索引
@@ -85,7 +93,7 @@
 - **進階索引**: 支援 FAISS, Annoy 等索引類型
 - **Chatbot 整合**: 在對話中啟用知識庫增強回應
 
-### 4. LINE Bot 整合
+### 5. LINE Bot 整合
 - **Webhook 處理**: 接收 LINE 訊息並回應
 - **多 Bot 管理**: 支援多個 LINE Bot 配置
 - **MCP 工具調用**: LINE Bot 可使用 MCP 工具
@@ -93,7 +101,7 @@
 - **對話同步**: LINE 對話與平台對話同步
 - **Prompt 自訂**: 為每個 Bot 設定系統 Prompt
 
-### 5. Prompt 管理
+### 6. Prompt 管理
 - **Prompt 庫**: 建立、編輯、刪除 Prompt 模板
 - **分類管理**: 依類別組織 Prompt
 - **快速套用**: 在 Chatbot 中快速套用 Prompt
@@ -343,6 +351,9 @@ mcp-platform/
     └── src/
         ├── main.js
         ├── App.vue                # 主元件
+        ├── store/                 # 狀態管理
+        ├── composables/           # 共用邏輯 (useAuth 等)
+        ├── utils/                 # 工具函式
         └── components/
             ├── Chatbot.vue        # Chatbot 介面
             ├── MCPManagement.vue  # MCP 管理介面

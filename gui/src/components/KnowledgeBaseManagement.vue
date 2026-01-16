@@ -343,7 +343,7 @@
 
 <script>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import request from '../utils/request'
 import Swal from 'sweetalert2'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
@@ -377,7 +377,7 @@ export default {
 
     const fetchKBs = async () => {
       try {
-        const res = await axios.get(`${API_URL}/api/rag/kb`)
+        const res = await request.get('/api/rag/kb')
         if (res.data.success) kbs.value = res.data.data
       } catch (err) {
         Swal.fire({
@@ -392,7 +392,7 @@ export default {
     const createKB = async () => {
       if (!newKB.value.name) return
       try {
-        const res = await axios.post(`${API_URL}/api/rag/kb`, newKB.value)
+        const res = await request.post('/api/rag/kb', newKB.value)
         if (res.data.success) {
           showCreateModal.value = false
           newKB.value = { name: '', description: '' }
@@ -423,7 +423,7 @@ export default {
 
     const updateKB = async () => {
       try {
-        const res = await axios.put(`${API_URL}/api/rag/kb/${editKBData.value.id}`, {
+        const res = await request.put(`/api/rag/kb/${editKBData.value.id}`, {
           name: editKBData.value.name,
           description: editKBData.value.description
         })
@@ -464,7 +464,7 @@ export default {
       if (!result.isConfirmed) return
 
       try {
-        const res = await axios.delete(`${API_URL}/api/rag/kb/${id}`)
+        const res = await request.delete(`/api/rag/kb/${id}`)
         if (res.data.success) {
           fetchKBs()
           if (selectedKB.value && selectedKB.value.id === id) {
@@ -498,7 +498,7 @@ export default {
 
     const loadKBConfig = async (kbId) => {
       try {
-        const res = await axios.get(`${API_URL}/api/rag/kb/${kbId}/config`)
+        const res = await request.get(`/api/rag/kb/${kbId}/config`)
         if (res.data.success && res.data.data) {
           kbConfig.value = {
             chunk_strategy: res.data.data.chunk_strategy || 'character',
@@ -520,8 +520,8 @@ export default {
       if (!selectedKB.value) return
       
       try {
-        const res = await axios.put(
-          `${API_URL}/api/rag/kb/${selectedKB.value.id}/config`,
+        const res = await request.put(
+          `/api/rag/kb/${selectedKB.value.id}/config`,
           kbConfig.value
         )
         
@@ -547,7 +547,7 @@ export default {
     const fetchFiles = async () => {
       if (!selectedKB.value) return
       try {
-        const res = await axios.get(`${API_URL}/api/rag/kb/${selectedKB.value.id}/files`)
+        const res = await request.get(`/api/rag/kb/${selectedKB.value.id}/files`)
         if (res.data.success) files.value = res.data.data
       } catch (err) {
         console.error('取得檔案列表失敗:', err)
@@ -625,7 +625,7 @@ export default {
           formData.append('file', item.file)
           formData.append('kb_id', selectedKB.value.id)
 
-          const res = await axios.post(`${API_URL}/api/rag/upload`, formData, {
+          const res = await request.post('/api/rag/upload', formData, {
             onUploadProgress: (progressEvent) => {
               item.progress = Math.round((progressEvent.loaded * 100) / progressEvent.total)
             }
@@ -670,7 +670,7 @@ export default {
       
       processing.value = true
       try {
-        const res = await axios.post(`${API_URL}/api/rag/kb/${selectedKB.value.id}/process`, {
+        const res = await request.post(`/api/rag/kb/${selectedKB.value.id}/process`, {
           file_ids: selectedFiles.value
         })
         
@@ -749,7 +749,7 @@ export default {
 
     const deleteFiles = async (fileIds) => {
       try {
-        const res = await axios.post(`${API_URL}/api/rag/files/delete`, { file_ids: fileIds })
+        const res = await request.post('/api/rag/files/delete', { file_ids: fileIds })
         if (res.data.success) {
           fetchFiles()
           selectedFiles.value = selectedFiles.value.filter(id => !fileIds.includes(id))
@@ -847,7 +847,6 @@ export default {
 
 <style scoped>
 .kb-management {
-  padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -872,7 +871,7 @@ export default {
 }
 
 .kb-card {
-  background: var(--color-slate-800);
+  background: var(--color-bg-secondary);
   border-radius: 16px;
   padding: 1.5rem;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -999,6 +998,29 @@ export default {
   box-shadow: var(--shadow-md);
 }
 
+.btn-danger-outline {
+  background: transparent;
+  color: #ef4444;
+  border: 1.5px solid #ef4444;
+  padding: 0.6rem 1.25rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all var(--transition-base);
+}
+
+.btn-danger-outline:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-danger-outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .btn-icon-danger {
   background: transparent;
   border: none;
@@ -1016,7 +1038,7 @@ export default {
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .file-list {
-  background: var(--color-slate-800);
+  background: var(--color-bg-secondary);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -1035,7 +1057,7 @@ th, td {
   color: var(--color-text-primary);
 }
 
-th { background: var(--color-slate-800); font-weight: 600; color: var(--color-text-primary); }
+th { background: var(--color-bg-tertiary); font-weight: 600; color: var(--color-text-primary); }
 
 .status-badge {
   padding: 0.25rem 0.5rem;
@@ -1113,6 +1135,12 @@ th { background: var(--color-slate-800); font-weight: 600; color: var(--color-te
 
 .mt-8 { margin-top: 2rem; }
 .ml-2 { margin-left: 0.5rem; }
+
+.file-ops {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 
 /* 空狀態樣式 */
 .empty-state {

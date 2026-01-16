@@ -9,6 +9,7 @@ import os
 from services.ai_client import AIClientFactory
 from services.mcp_client import mcp_client
 from services.rag_service import rag_service
+from services.auth_service import require_auth, require_permission
 
 # 建立 Blueprint
 chat_bp = Blueprint('chat', __name__, url_prefix='/api/chat')
@@ -30,6 +31,7 @@ def get_db_connection():
 
 
 @chat_bp.route('/conversations', methods=['POST'])
+@require_permission('func_chat_create')
 def create_conversation():
     """建立新對話"""
     try:
@@ -114,6 +116,7 @@ def create_conversation():
 
 
 @chat_bp.route('/conversations', methods=['GET'])
+@require_auth
 def list_conversations():
     """取得對話列表"""
     try:
@@ -193,6 +196,7 @@ def list_conversations():
 
 
 @chat_bp.route('/conversations/<int:conversation_id>', methods=['GET'])
+@require_auth
 def get_conversation(conversation_id):
     """取得對話詳情(包含訊息)"""
     try:
@@ -291,6 +295,7 @@ def get_conversation(conversation_id):
 
 
 @chat_bp.route('/conversations/<int:conversation_id>/messages', methods=['POST'])
+@require_permission('func_chat_create')
 def send_message(conversation_id):
     """發送訊息並取得 AI 回應"""
     try:
@@ -521,6 +526,7 @@ def send_message(conversation_id):
 
 
 @chat_bp.route('/conversations/<int:conversation_id>', methods=['PATCH'])
+@require_permission('func_chat_create')
 def update_conversation(conversation_id):
     """更新對話配置 (例如切換模型或 MCP 工具)"""
     try:
@@ -591,6 +597,7 @@ def update_conversation(conversation_id):
 
 
 @chat_bp.route('/conversations/<int:conversation_id>', methods=['DELETE'])
+@require_permission('func_chat_delete')
 def delete_conversation(conversation_id):
     """刪除對話"""
     try:
@@ -619,6 +626,7 @@ def delete_conversation(conversation_id):
 
 
 @chat_bp.route('/conversations/clear-all', methods=['DELETE'])
+@require_permission('func_chat_delete')
 def clear_all_conversations():
     """清空所有對話紀錄"""
     try:

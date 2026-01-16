@@ -204,13 +204,13 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue'
-import axios from 'axios'
+import request from '../utils/request'
 import Swal from 'sweetalert2'
 
 export default {
   name: 'AgentManagement',
   setup() {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+    // API_URL 已由 request 工具管理
 
     // 狀態
     const agents = ref([])
@@ -257,7 +257,7 @@ export default {
     // 方法
     const loadAgents = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/agents`)
+        const response = await request.get('/api/agents')
         if (response.data.success) {
           agents.value = response.data.agents
         }
@@ -277,7 +277,7 @@ export default {
 
     const loadModels = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/chat/models`)
+        const response = await request.get('/api/chat/models')
         if (response.data.success) {
           allModels.value = response.data.models
         }
@@ -288,7 +288,7 @@ export default {
 
     const loadPrompts = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/prompts`)
+        const response = await request.get('/api/prompts')
         if (response.data.success) {
           availablePrompts.value = response.data.prompts
         }
@@ -299,7 +299,7 @@ export default {
 
     const loadKbs = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/rag/kb`)
+        const response = await request.get('/api/rag/kb')
         if (response.data.success) {
           availableKbs.value = response.data.data
         }
@@ -310,7 +310,7 @@ export default {
 
     const loadMcpServers = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/mcp/servers`)
+        const response = await request.get('/api/mcp/servers')
         if (response.data.success) {
           const result = response.data.data
           let servers = []
@@ -354,7 +354,7 @@ export default {
 
     const selectAgent = async (agentId) => {
       try {
-        const response = await axios.get(`${API_URL}/api/agents/${agentId}`)
+        const response = await request.get(`/api/agents/${agentId}`)
         if (response.data.success) {
           const agent = response.data.agent
           selectedAgentId.value = agentId
@@ -405,10 +405,10 @@ export default {
         let response
         if (isCreating.value) {
           // 建立新 Agent
-          response = await axios.post(`${API_URL}/api/agents`, payload)
+          response = await request.post('/api/agents', payload)
         } else {
           // 更新現有 Agent
-          response = await axios.put(`${API_URL}/api/agents/${selectedAgentId.value}`, payload)
+          response = await request.put(`/api/agents/${selectedAgentId.value}`, payload)
         }
 
         if (response.data.success) {
@@ -456,7 +456,7 @@ export default {
       if (!result.isConfirmed) return
 
       try {
-        const response = await axios.delete(`${API_URL}/api/agents/${selectedAgentId.value}`)
+        const response = await request.delete(`/api/agents/${selectedAgentId.value}`)
 
         if (response.data.success) {
           Swal.fire({
@@ -499,7 +499,7 @@ export default {
       if (result.isConfirmed) {
         try {
           // 使用 Agent 建立新對話
-          const response = await axios.post(`${API_URL}/api/chat/conversations`, {
+          const response = await request.post('/api/chat/conversations', {
             title: `測試 ${currentAgent.value.name} - ${new Date().toLocaleString()}`,
             agent_id: selectedAgentId.value
           })

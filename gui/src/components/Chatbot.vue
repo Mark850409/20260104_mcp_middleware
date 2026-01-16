@@ -5,10 +5,10 @@
       <div class="sidebar-header">
         <h2>對話列表</h2>
         <div class="header-actions">
-          <button @click="createNewConversation" class="btn-new">
+          <button v-if="hasFunctionPermission('func_chat_create')" @click="createNewConversation" class="btn-new">
             <i class="ri-add-circle-line"></i> 新對話
           </button>
-          <button @click="clearAllConversations" class="btn-clear">
+          <button v-if="hasFunctionPermission('func_chat_delete')" @click="clearAllConversations" class="btn-clear">
             <i class="ri-delete-bin-6-line"></i> 清空
           </button>
         </div>
@@ -262,6 +262,7 @@
               </div>
 
               <button
+                v-if="hasFunctionPermission('func_chat_create')"
                 @click="sendMessage"
                 :disabled="!currentConversationId || !userInput.trim() || isLoading"
                 class="btn-send-modern"
@@ -282,9 +283,10 @@
 
 <script>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import axios from 'axios'
+import request from '../utils/request'
 import Swal from 'sweetalert2'
 import { marked } from 'marked'
+import { useAuth } from '../composables/useAuth'
 
 // 配置 marked
 marked.setOptions({
@@ -297,6 +299,7 @@ marked.setOptions({
 export default {
   name: 'Chatbot',
   setup() {
+    const { hasFunctionPermission } = useAuth()
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
     
     // 狀態
@@ -340,7 +343,7 @@ export default {
     // 方法
     const loadConversations = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/chat/conversations`)
+        const response = await request.get('/api/chat/conversations')
         if (response.data.success) {
           conversations.value = response.data.conversations
         }
@@ -351,7 +354,7 @@ export default {
     
     const loadModels = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/chat/models`)
+        const response = await request.get('/api/chat/models')
         if (response.data.success) {
           allModels.value = response.data.models
         }
@@ -362,7 +365,7 @@ export default {
     
     const loadMcpServers = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/mcp/servers`)
+        const response = await request.get('/api/mcp/servers')
         if (response.data.success) {
           const result = response.data.data
           let servers = []
@@ -390,7 +393,7 @@ export default {
 
     const loadPrompts = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/prompts`)
+        const response = await request.get('/api/prompts')
         if (response.data.success) {
           availablePrompts.value = response.data.prompts
           // 如果沒有選中且有預設，則選中預設
@@ -408,7 +411,7 @@ export default {
 
     const loadKbs = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/rag/kb`)
+        const response = await request.get('/api/rag/kb')
         if (response.data.success) {
           availableKbs.value = response.data.data
         }
@@ -419,7 +422,7 @@ export default {
     
     const loadAgents = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/agents`)
+        const response = await request.get('/api/agents')
         if (response.data.success) {
           availableAgents.value = response.data.agents
         }
@@ -432,7 +435,7 @@ export default {
       if (selectedAgentId.value) {
         // 載入 Agent 配置
         try {
-          const response = await axios.get(`${API_URL}/api/agents/${selectedAgentId.value}`)
+          const response = await request.get(`/api/agents/${selectedAgentId.value}`)
           if (response.data.success) {
             const agent = response.data.agent
             
@@ -483,7 +486,7 @@ export default {
       if (!result.isConfirmed) return
 
       try {
-        const response = await axios.delete(`${API_URL}/api/chat/conversations/clear-all`)
+        const response = await request.delete('/api/chat/conversations/clear-all')
 
         if (response.data.success) {
           conversations.value = []
@@ -530,7 +533,7 @@ export default {
           payload.kb_id = selectedKbId.value
         }
         
-        const response = await axios.post(`${API_URL}/api/chat/conversations`, payload)
+        const response = await request.post('/api/chat/conversations', payload)
         
         if (response.data.success) {
           await loadConversations()
@@ -559,7 +562,7 @@ export default {
         }
         
         isLoadingConfig.value = true // 標記正在載入配置,避免觸發 watch
-        const response = await axios.get(`${API_URL}/api/chat/conversations/${conversationId}`)
+        const response = await request.get(`/api/chat/conversations/${conversationId}`)
         if (response.data.success) {
           currentConversationId.value = conversationId
           const conv = response.data.conversation
@@ -612,7 +615,7 @@ export default {
       
       try {
         console.log('[LINE] 執行自動刷新...')
-        const response = await axios.get(`${API_URL}/api/chat/conversations/${currentConversationId.value}`)
+        const response = await request.get(`/api/chat/conversations/${currentConversationId.value}`)
         if (response.data.success) {
           const conv = response.data.conversation
           const newMessages = conv.messages || []
@@ -681,8 +684,8 @@ export default {
         if (currentConversationSource.value === 'line') {
           // LINE 對話:發送到 LINE
           console.log('[LINE] 發送訊息到 LINE')
-          response = await axios.post(
-            `${API_URL}/api/line/conversations/${currentConversationId.value}/send`,
+          response = await request.post(
+            `/api/line/conversations/${currentConversationId.value}/send`,
             { content: message }
           )
           
@@ -693,8 +696,8 @@ export default {
           }
         } else {
           // Web 對話:正常處理
-          response = await axios.post(
-            `${API_URL}/api/chat/conversations/${currentConversationId.value}/messages`,
+          response = await request.post(
+            `/api/chat/conversations/${currentConversationId.value}/messages`,
             { content: message }
           )
           
@@ -726,7 +729,7 @@ export default {
       
       console.log("[Chatbot] 自動同步配置到後端...")
       try {
-        await axios.patch(`${API_URL}/api/chat/conversations/${currentConversationId.value}`, {
+        await request.patch(`/api/chat/conversations/${currentConversationId.value}`, {
           model_provider: selectedProvider.value,
           model_name: selectedModel.value,
           mcp_servers: selectedMcpServers.value,
@@ -975,6 +978,7 @@ export default {
       clearAllConversations,
       formatTime,
       formatJSON,
+      hasFunctionPermission,
       parseToolArguments,
       parseToolResult,
       formatKey,

@@ -207,14 +207,13 @@
 
 <script>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import request from '../utils/request'
 import Swal from 'sweetalert2'
 
 export default {
   name: 'LineBotManagement',
   setup() {
-    // API Base URL
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+    // API_URL 已由 request 工具管理
 
     // 狀態
     const configs = ref([])
@@ -236,7 +235,7 @@ export default {
     const loadConfigs = async () => {
       loading.value = true
       try {
-        const response = await axios.get(`${API_URL}/api/line/configs`)
+        const response = await request.get('/api/line/configs')
         if (response.data.success) {
           configs.value = response.data.data
         }
@@ -255,7 +254,7 @@ export default {
     // 載入可用的 MCP Servers
     const loadAvailableServers = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/mcp/servers`)
+        const response = await request.get('/api/mcp/servers')
         if (response.data.success) {
           const result = response.data.data
           let servers = []
@@ -284,7 +283,7 @@ export default {
     // 載入可用的知識庫
     const loadAvailableKbs = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/rag/kb`)
+        const response = await request.get('/api/rag/kb')
         if (response.data.success) {
           availableKbs.value = response.data.data
         }
@@ -296,7 +295,7 @@ export default {
     // 載入可用的系統提示詞
     const loadAvailablePrompts = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/prompts`)
+        const response = await request.get('/api/prompts')
         if (response.data.success) {
           availablePrompts.value = response.data.prompts
         }
@@ -317,7 +316,7 @@ export default {
       }, 3000)
 
       try {
-        const response = await axios.post(`${API_URL}/api/line/configs/${configId}/toggle`)
+        const response = await request.post(`/api/line/configs/${configId}/toggle`)
         clearTimeout(loadingTimer)
         if (Swal.isVisible()) Swal.close()
 
@@ -382,7 +381,7 @@ export default {
       if (!result.isConfirmed) return
 
       try {
-        const response = await axios.delete(`${API_URL}/api/line/configs/${configId}`)
+        const response = await request.delete(`/api/line/configs/${configId}`)
         if (response.data.success) {
           await loadConfigs()
         }
@@ -441,8 +440,8 @@ export default {
             kb_id: configForm.value.kb_id
           }
 
-          const response = await axios.put(
-            `${API_URL}/api/line/configs/${editingConfig.value.id}`,
+          const response = await request.put(
+            `/api/line/configs/${editingConfig.value.id}`,
             updateData
           )
           clearTimeout(loadingTimer)
@@ -465,7 +464,7 @@ export default {
       } else {
         // 新增
         try {
-          const response = await axios.post(`${API_URL}/api/line/configs`, configForm.value)
+          const response = await request.post('/api/line/configs', configForm.value)
           clearTimeout(loadingTimer)
           if (Swal.isVisible()) Swal.close()
 
@@ -572,8 +571,6 @@ export default {
 
 <style scoped>
 .line-bot-management {
-  height: 100%;
-  overflow-y: auto;
   background: var(--color-background);
 }
 
